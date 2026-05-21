@@ -1,9 +1,8 @@
-"""macOS CUPS printer discovery and PDF printing."""
+"""macOS CUPS printer discovery."""
 
 from __future__ import annotations
 
 from dataclasses import dataclass
-from pathlib import Path
 import re
 
 from utils import AppError, CommandExecutionError, run_command
@@ -48,21 +47,3 @@ def list_printers() -> list[PrinterInfo]:
 
     printers.sort(key=lambda item: (not item.is_default, item.name.lower()))
     return printers
-
-
-def print_pdf(printer_name: str, pdf_path: str | Path) -> str:
-    """Send a PDF to a named CUPS printer with ``lp``."""
-
-    if not printer_name.strip():
-        raise PrinterError("Select a printer before printing.")
-
-    path = Path(pdf_path)
-    if not path.exists():
-        raise PrinterError(f"Label PDF was not found: {path}")
-
-    try:
-        result = run_command(["lp", "-d", printer_name, str(path)], timeout=12.0)
-    except CommandExecutionError as exc:
-        raise PrinterError(f"Could not send print job: {exc}") from exc
-
-    return result.stdout.strip() or "Print job submitted."

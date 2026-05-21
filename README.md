@@ -2,7 +2,7 @@
 
 Local macOS desktop app for a phone repair shop.
 
-The app detects an iPhone connected by USB, reads device metadata through `libimobiledevice`, lets staff confirm or edit missing fields, generates a thermal PDF label, and prints it through the macOS CUPS printer system.
+The app detects an iPhone connected by USB, reads device metadata through `libimobiledevice`, lets staff confirm or edit missing fields, generates a thermal PDF label, and prints it through the native macOS print dialog.
 
 This is an internal shop tool. It is not designed for App Store distribution.
 
@@ -14,7 +14,7 @@ This is an internal shop tool. It is not designed for App Store distribution.
 - Resolve color and storage from a local Apple order-number variant database.
 - Allow manual correction for fields that Apple/libimobiledevice does not expose reliably.
 - Generate 62 mm x 40 mm thermal PDF labels.
-- Print labels with the macOS `lp` command.
+- Print labels through the native macOS print dialog.
 - Show operational errors in the GUI instead of only printing them in Terminal.
 
 ## Requirements
@@ -84,7 +84,7 @@ python3.12 --version
    - Battery health
 7. Select the thermal printer.
 8. Click **Generate Label**.
-9. Click **Print Label**.
+9. Click **Print Label** and confirm the macOS print dialog.
 
 Generated PDFs are saved in:
 
@@ -231,12 +231,11 @@ Label content:
 
 ### `printer.py`
 
-Wraps macOS CUPS commands:
+Wraps macOS CUPS printer discovery commands:
 
 ```bash
 lpstat -p
 lpstat -d
-lp -d PRINTER_NAME path/to/label.pdf
 ```
 
 ### `utils.py`
@@ -266,7 +265,7 @@ Scan iPhone
   -> GUI form is populated
   -> user confirms or edits
   -> ReportLab generates PDF
-  -> lp sends PDF to selected printer
+  -> macOS print dialog prints the generated PDF
 ```
 
 ## Battery Health Notes
@@ -351,7 +350,7 @@ Then verify:
 - IMEI can be manually entered if missing.
 - **Generate Label** creates a PDF in `generated_labels/`.
 - The generated PDF opens in Preview.
-- **Print Label** submits a job to the selected printer.
+- **Print Label** opens the macOS print dialog for the generated label.
 
 Useful direct checks:
 

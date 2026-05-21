@@ -4,12 +4,15 @@ from pathlib import Path
 import sys
 import tempfile
 
-from PySide6.QtCore import Qt
+from PySide6.QtCore import QMarginsF, QSizeF, Qt
+from PySide6.QtGui import QPageLayout, QPageSize, QPainter
 from PySide6.QtPdf import QPdfDocument
 from PySide6.QtPdfWidgets import QPdfView
+from PySide6.QtPrintSupport import QPrintDialog, QPrinter
 from PySide6.QtWidgets import (
     QApplication,
     QComboBox,
+    QDialog,
     QFormLayout,
     QGridLayout,
     QGroupBox,
@@ -33,12 +36,17 @@ from iphone_reader import (
     read_iphone_info,
 )
 from label_generator import generate_label_pdf, write_label_pdf
-from printer import PrinterInfo, list_printers, print_pdf
+from printer import PrinterInfo, list_printers
 from utils import AppError, CommandNotFoundError, IPhoneInfo
 
 
 BASE_DIR = Path(__file__).resolve().parent
 GENERATED_LABELS_DIR = BASE_DIR / "generated_labels"
+LABEL_PAGE_SIZE = QPageSize(
+    QSizeF(62.0, 40.0),
+    QPageSize.Unit.Millimeter,
+    "Thermal Label 62 x 40 mm",
+)
 
 COLOR_CHOICES = [
     "",
@@ -414,10 +422,65 @@ class MainWindow(QMainWindow):
                 return
 
         try:
-            result = print_pdf(printer_name, self.current_pdf_path)
-            self.show_info("Print Submitted", result)
+            if self.print_pdf_with_dialog(printer_name, self.current_pdf_path):
+                self.statusBar().showMessage("Print job submitted.", 7000)
+            else:
+                self.statusBar().showMessage("Print cancelled.", 4000)
         except AppError as exc:
             self.show_error("Print Failed", str(exc))
+
+    def print_pdf_with_dialog(self, printer_name: str, pdf_path: Path) -> bool:
+        pdf_path = Path(pdf_path)
+        if not pdf_path.exists():
+            raise AppError(f"Label PDF was not found: {pdf_path}")
+
+        document = QPdfDocument(self)
+        load_status = document.load(str(pdf_path))
+        if load_status != QPdfDocument.Error.None_:
+            raise AppError(f"Could not open label PDF for printing: {pdf_path}")
+
+        printer = QPrinter(QPrinter.PrinterMode.HighResolution)
+        printer.setPrinterName(printer_name)
+        printer.setResolution(300)
+        printer.setFullPage(True)
+        printer.setPageLayout(
+            QPageLayout(
+                LABEL_PAGE_SIZE,
+                QPageLayout.Orientation.Portrait,
+                QMarginsF(0.0, 0.0, 0.0, 0.0),
+                QPageLayout.Unit.Millimeter,
+            )
+        )
+
+        dialog = QPrintDialog(printer, self)
+        dialog.setWindowTitle("Print Label")
+        if dialog.exec() != QDialog.DialogCode.Accepted:
+            document.close()
+            return False
+
+        painter = QPainter()
+        if not painter.begin(printer):
+            document.close()
+            raise AppError("Could not start the print job.")
+
+        try:
+            for page_index in range(document.pageCount()):
+                if page_index > 0 and not printer.newPage():
+                    raise AppError("Could not add a new page to the print job.")
+
+                page_rect = printer.pageRect(QPrinter.Unit.DevicePixel).toRect()
+                if page_rect.isEmpty():
+                    raise AppError("The selected printer returned an empty printable area.")
+
+                image = document.render(page_index, page_rect.size())
+                if image.isNull():
+                    raise AppError("Could not render the label PDF for printing.")
+                painter.drawImage(page_rect, image)
+        finally:
+            painter.end()
+            document.close()
+
+        return True
 
     def clear_form(self) -> None:
         self.model_edit.clear()
