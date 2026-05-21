@@ -57,6 +57,8 @@ python app.py
 
 Running `python app.py` opens the PySide6 GUI.
 
+You can also double-click `Launch iPhoneLabelPrinter.command` from Finder after setup.
+
 If `python3.12` is missing:
 
 ```bash
