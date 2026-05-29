@@ -3,3 +3,4 @@ reportlab==4.2.2
 qrcode[pil]==7.4.2
 python-barcode==0.15.1
 Pillow==10.4.0
+pywin32==306; sys_platform == "win32"

@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 import plistlib
+import sys
 
 from model_mapping import marketing_name_for_product_type
 from utils import (
@@ -57,6 +58,26 @@ NO_DEVICE_MESSAGE = (
     "Connect the iPhone by USB, unlock it, and tap Trust This Mac if prompted.\n"
     "If it is already connected, unplug and reconnect the cable."
 )
+
+
+def libimobiledevice_install_hint() -> str:
+    """Return an OS-specific instruction to install libimobiledevice."""
+
+    if sys.platform == "darwin":
+        return (
+            "Install libimobiledevice with Homebrew:\n"
+            "    brew install libimobiledevice"
+        )
+    if sys.platform == "win32":
+        return (
+            "Install libimobiledevice for Windows (for example the "
+            "libimobiledevice-win32 build) and either add its folder to PATH "
+            "or copy the binaries to assets\\bin\\win32\\ next to the app."
+        )
+    return (
+        "Install libimobiledevice using your package manager and ensure "
+        "idevice_id is on PATH (Debian/Ubuntu: apt install libimobiledevice-utils)."
+    )
 
 
 @dataclass

@@ -3,10 +3,18 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from pathlib import Path
+import os
 import re
 import shutil
 import subprocess
+import sys
 from typing import Sequence
+
+
+_BASE_DIR = Path(__file__).resolve().parent
+_BUNDLED_BIN_DIR = _BASE_DIR / "assets" / "bin" / sys.platform
+_WIN_NO_WINDOW = 0x08000000  # subprocess.CREATE_NO_WINDOW
 
 
 class AppError(Exception):
@@ -51,6 +59,22 @@ class IPhoneInfo:
 COMMON_STORAGE_GB = [64, 128, 256, 512, 1024, 2048]
 
 
+def resolve_tool(name: str) -> str | None:
+    """Locate a CLI tool, preferring a bundled binary over the system PATH.
+
+    Allows shipping libimobiledevice (or other helpers) alongside the app under
+    ``assets/bin/<platform>/`` so end users do not have to install them
+    separately. Falls back to ``shutil.which`` for the developer setup case.
+    """
+
+    if _BUNDLED_BIN_DIR.is_dir():
+        suffix = ".exe" if sys.platform == "win32" else ""
+        candidate = _BUNDLED_BIN_DIR / f"{name}{suffix}"
+        if candidate.is_file() and os.access(candidate, os.X_OK):
+            return str(candidate)
+    return shutil.which(name)
+
+
 def run_command(command: Sequence[str], timeout: float = 8.0) -> CommandResult:
     """Run a command safely and return captured output.
 
@@ -61,26 +85,33 @@ def run_command(command: Sequence[str], timeout: float = 8.0) -> CommandResult:
     if not command:
         raise CommandExecutionError("No command was provided.")
 
-    executable = command[0]
-    if shutil.which(executable) is None:
+    requested = command[0]
+    executable = resolve_tool(requested)
+    if executable is None:
         raise CommandNotFoundError(
-            f"Required command '{executable}' was not found. Install it and try again."
+            f"Required command '{requested}' was not found. Install it and try again."
         )
+
+    args = [executable, *list(command[1:])]
+    popen_kwargs: dict[str, object] = {}
+    if sys.platform == "win32":
+        popen_kwargs["creationflags"] = _WIN_NO_WINDOW
 
     try:
         completed = subprocess.run(
-            list(command),
+            args,
             capture_output=True,
             text=True,
             timeout=timeout,
             check=False,
+            **popen_kwargs,
         )
     except subprocess.TimeoutExpired as exc:
         raise CommandExecutionError(
             f"Command timed out after {timeout:.0f}s: {' '.join(command)}"
         ) from exc
     except OSError as exc:
-        raise CommandExecutionError(f"Could not run command '{executable}': {exc}") from exc
+        raise CommandExecutionError(f"Could not run command '{requested}': {exc}") from exc
 
     stdout = completed.stdout or ""
     stderr = completed.stderr or ""

@@ -32,6 +32,7 @@ from iphone_reader import (
     IPhoneReaderError,
     NO_DEVICE_MESSAGE,
     detect_devices,
+    libimobiledevice_install_hint,
     read_iphone_info,
 )
 from label_generator import LABEL_HEIGHT_MM, LABEL_WIDTH_MM, generate_label_pdf, write_label_pdf
@@ -455,7 +456,7 @@ class MainWindow(QMainWindow):
             self.status_label.setText("libimobiledevice command is missing.")
             self.show_error(
                 "Missing Dependency",
-                f"{exc}\n\nInstall libimobiledevice with:\nbrew install libimobiledevice",
+                f"{exc}\n\n{libimobiledevice_install_hint()}",
             )
         except IPhoneReaderError as exc:
             self.status_label.setText(str(exc))
@@ -520,7 +521,8 @@ class MainWindow(QMainWindow):
             if show_success:
                 self.show_error(
                     "No Printers Found",
-                    "No printer is listed by macOS. Add the thermal printer in System Settings > Printers & Scanners.",
+                    "No printer is installed. Add the thermal printer in the operating "
+                    "system's printer settings, then click Refresh Printers.",
                 )
             return
 

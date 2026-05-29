@@ -1,8 +1,8 @@
 # iPhoneLabelPrinter
 
-Local macOS desktop app for a phone repair shop.
+Local desktop app for a phone repair shop. Runs on **macOS and Windows**.
 
-The app detects an iPhone connected by USB, reads device metadata through `libimobiledevice`, lets staff confirm or edit missing fields, generates a thermal PDF label, and submits it to the selected macOS printer with the configured label size.
+The app detects an iPhone connected by USB, reads device metadata through `libimobiledevice`, lets staff confirm or edit missing fields, generates a thermal PDF label, and submits it to the selected printer with the configured label size.
 
 This is an internal shop tool. It is not designed for App Store distribution.
 
@@ -19,13 +19,22 @@ This is an internal shop tool. It is not designed for App Store distribution.
 
 ## Requirements
 
-- macOS
+Shared:
+
 - Python 3.12
-- Homebrew
-- `libimobiledevice`
 - A USB data cable
 - A trusted/unlocked iPhone
-- A thermal printer installed in **System Settings > Printers & Scanners**
+- A printer installed in the operating system
+
+Per-platform native dependencies:
+
+| Platform | iPhone reader | Printing |
+| --- | --- | --- |
+| macOS   | Homebrew `libimobiledevice` | CUPS (built-in) |
+| Windows | libimobiledevice-win32 (`idevice_id.exe`, `ideviceinfo.exe`, `idevicediagnostics.exe`) | SumatraPDF (silent PDF printer) + pywin32 |
+| Linux   | `libimobiledevice-utils` (`apt`, `dnf`, ...) | CUPS |
+
+### macOS Setup
 
 Install the system dependency:
 
@@ -42,9 +51,7 @@ idevicediagnostics --help
 lpstat -p
 ```
 
-## First-Time Setup
-
-From this directory:
+First-time setup:
 
 ```bash
 cd /Users/dwenn/Documents/dev/iPhoneLabelPrinter
@@ -55,9 +62,7 @@ pip install -r requirements.txt
 python app.py
 ```
 
-Running `python app.py` opens the PySide6 GUI.
-
-You can also double-click `Launch iPhoneLabelPrinter.command` from Finder after setup.
+Running `python app.py` opens the PySide6 GUI. You can also double-click `Launch iPhoneLabelPrinter.command` from Finder after setup.
 
 If `python3.12` is missing:
 
@@ -65,6 +70,54 @@ If `python3.12` is missing:
 brew install python@3.12
 python3.12 --version
 ```
+
+### Windows Setup
+
+All Windows-specific native binaries (libimobiledevice + SumatraPDF) are
+**already bundled** in `assets\bin\win32\` (see the `NOTICE.md` in that
+directory for provenance and licensing). You only need Python and the
+printer.
+
+1. **Install Python 3.12** from <https://www.python.org/downloads/windows/> and tick *Add Python to PATH*.
+
+2. **Install the thermal printer** in *Settings > Bluetooth & devices > Printers & scanners*. Configure the custom paper size in the printer driver's preferences (Windows printer drivers expect the media size to be set at the driver level rather than passed per print job — this is the cleanest way for thermal labels).
+
+3. **Create the virtual environment and install Python dependencies:**
+
+   ```bat
+   cd C:\path\to\iPhoneLabelPrinter
+   py -3.12 -m venv .venv
+   .venv\Scripts\activate
+   pip install --upgrade pip
+   pip install -r requirements.txt
+   python app.py
+   ```
+
+   `pywin32` is installed automatically from `requirements.txt` on Windows only (`sys_platform == "win32"` marker).
+
+4. **Double-click `Launch iPhoneLabelPrinter.bat`** from Explorer for subsequent launches. It uses `pythonw.exe` so no console window appears.
+
+Sanity check from a `cmd` window (using the bundled binaries):
+
+```bat
+assets\bin\win32\idevice_id.exe -l
+assets\bin\win32\ideviceinfo.exe -k ProductType
+```
+
+To refresh the bundled binaries to a newer version, follow the instructions in `assets\bin\win32\NOTICE.md`.
+
+### Linux Setup (best effort)
+
+```bash
+sudo apt install libimobiledevice-utils cups python3.12 python3.12-venv
+python3.12 -m venv .venv
+source .venv/bin/activate
+pip install --upgrade pip
+pip install -r requirements.txt
+python app.py
+```
+
+Linux uses the CUPS backend, same as macOS.
 
 ## Daily Usage
 
@@ -100,16 +153,28 @@ generated_labels/
 iPhoneLabelPrinter/
 ├── README.md
 ├── requirements.txt
-├── app.py
-├── iphone_reader.py
-├── model_mapping.py
-├── variant_resolver.py
-├── variant_data.py
-├── label_generator.py
-├── printer.py
-├── utils.py
+├── Launch iPhoneLabelPrinter.command   # macOS double-click launcher
+├── Launch iPhoneLabelPrinter.bat       # Windows double-click launcher
+├── app.py                              # PySide6 GUI
+├── iphone_reader.py                    # libimobiledevice CLI wrapper
+├── model_mapping.py                    # ProductType -> marketing name
+├── variant_resolver.py                 # ModelNumber -> color/storage
+├── variant_data.py                     # Apple order-number database
+├── label_generator.py                  # ReportLab PDF generation
+├── printer.py                          # cross-platform printer facade
+├── _printer_cups.py                    # macOS / Linux backend (CUPS)
+├── _printer_win32.py                   # Windows backend (win32print + SumatraPDF)
+├── utils.py                            # subprocess + data helpers
 ├── generated_labels/
 └── assets/
+    └── bin/
+        └── win32/                      # bundled Windows runtime (~38 MB)
+            ├── NOTICE.md               # provenance + licenses (GPL-3.0, LGPL-2.1)
+            ├── SumatraPDF.exe          # silent PDF printer
+            ├── idevice_id.exe          # libimobiledevice CLI tools
+            ├── ideviceinfo.exe
+            ├── idevicediagnostics.exe
+            └── *.dll                   # libimobiledevice shared dependencies
 ```
 
 ## Architecture
@@ -231,14 +296,21 @@ Label content:
 - Timestamp
 - Technical model
 
-### `printer.py`
+### `printer.py` + backends
 
-Wraps macOS CUPS printer discovery commands:
+`printer.py` is a thin **facade** that exposes a single public surface:
 
-```bash
-lpstat -p
-lpstat -d
-```
+- `PrinterError`
+- `PrinterInfo`
+- `list_printers()`
+- `submit_label_print_job(printer_name, pdf_path, width_mm, height_mm, orientation)`
+
+At import time it picks one backend based on `sys.platform`:
+
+- `_printer_cups.py` on macOS and Linux. Wraps `lpstat -p`, `lpstat -d`, and `lp` with a `Custom.<W>x<H>mm` media size so the OS print dialog is skipped.
+- `_printer_win32.py` on Windows. Lists printers through `win32print.EnumPrinters` and submits PDFs through SumatraPDF in `-silent` mode (`-print-settings noscale,portrait|landscape`). Custom thermal paper sizes are expected to be configured at the printer-driver level, which is the Windows-native way to handle non-standard media.
+
+Add a third platform by dropping a new `_printer_<name>.py` module that exposes `list_printers()` / `submit_label_print_job()` and extending the `if sys.platform == ...` block in `printer.py`.
 
 ### `utils.py`
 
@@ -247,7 +319,8 @@ Shared helpers and dataclasses.
 Important pieces:
 
 - `IPhoneInfo`
-- `run_command()`
+- `run_command()` — subprocess wrapper. Hides the console window on Windows (`CREATE_NO_WINDOW`) so the GUI does not flash a black box on every iPhone scan.
+- `resolve_tool(name)` — looks for a CLI tool in `assets/bin/<sys.platform>/` first, then falls back to `shutil.which`. Lets the app bundle libimobiledevice (or SumatraPDF) without changing call sites.
 - subprocess timeout handling
 - safe key/value parsing
 - storage rounding
@@ -336,7 +409,15 @@ Use this before handing the app to shop staff:
 ```bash
 cd /Users/dwenn/Documents/dev/iPhoneLabelPrinter
 source .venv/bin/activate
-python -m py_compile app.py iphone_reader.py label_generator.py model_mapping.py printer.py utils.py variant_resolver.py variant_data.py
+python -m py_compile app.py iphone_reader.py label_generator.py model_mapping.py printer.py _printer_cups.py utils.py variant_resolver.py variant_data.py
+python app.py
+```
+
+On Windows, replace the `py_compile` invocation with:
+
+```bat
+.venv\Scripts\activate
+python -m py_compile app.py iphone_reader.py label_generator.py model_mapping.py printer.py _printer_win32.py utils.py variant_resolver.py variant_data.py
 python app.py
 ```
 
@@ -436,7 +517,9 @@ If both commands fail or omit capacity/cycle fields, enter the value manually or
 lp -d PRINTER_NAME generated_labels/YOUR_LABEL.pdf
 ```
 
-## Packaging As A macOS App
+## Packaging
+
+### macOS App Bundle
 
 Optional packaging with PyInstaller:
 
@@ -454,17 +537,19 @@ The packaged app still depends on:
 - `idevicediagnostics`
 - macOS CUPS commands like `lp` and `lpstat`
 
-If a packaged app cannot find Homebrew commands, inspect PATH inside the app bundle. Homebrew on Apple Silicon is usually:
+If a packaged app cannot find Homebrew commands, inspect `PATH` inside the app bundle. Homebrew on Apple Silicon is usually `/opt/homebrew/bin`; on Intel Macs, `/usr/local/bin`.
 
-```text
-/opt/homebrew/bin
+### Windows Executable
+
+```bat
+.venv\Scripts\activate
+pip install pyinstaller
+pyinstaller --windowed --name "iPhoneLabelPrinter" ^
+    --add-data "assets;assets" ^
+    app.py
 ```
 
-Homebrew on Intel Macs is usually:
-
-```text
-/usr/local/bin
-```
+For a fully self-contained build on Windows, place the libimobiledevice binaries (`idevice_id.exe`, `ideviceinfo.exe`, `idevicediagnostics.exe`, plus their `.dll` files) and `SumatraPDF.exe` in `assets\bin\win32\` before running PyInstaller. `resolve_tool()` will find them inside the bundled app automatically.
 
 ## Optional Commercial Variant Enrichment
 
