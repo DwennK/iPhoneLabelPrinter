@@ -6,6 +6,107 @@ The app detects an iPhone connected by USB, reads device metadata through `libim
 
 This is an internal shop tool. It is not designed for App Store distribution.
 
+---
+
+## 🇫🇷 Guide Windows (pour le mainteneur)
+
+> Cette section résume **tout ce qui concerne Windows en français**, pour t'y
+> retrouver plus tard. Le reste du README (en anglais) donne le détail
+> technique. Ici on reste concret.
+
+### En une phrase
+
+Sur Windows, l'app est **un seul fichier `.exe`** qui contient déjà tout ce
+qu'il faut (lecture iPhone + impression). L'utilisateur n'installe **ni
+Python, ni libimobiledevice, ni rien d'autre**. Et l'app **se met à jour
+toute seule** quand tu publies une nouvelle version sur GitHub.
+
+### Comment ça marche (les 3 briques)
+
+1. **Lecture de l'iPhone** : l'app utilise les outils `libimobiledevice`
+   (`idevice_id.exe`, `ideviceinfo.exe`, `idevicediagnostics.exe`). Sur macOS
+   ils viennent de Homebrew ; sur Windows ils n'existent pas officiellement,
+   donc **je les ai mis directement dans le projet** (`assets\bin\win32\`).
+   L'app les trouve toute seule là-dedans avant de chercher ailleurs.
+2. **Impression** : Windows n'a pas l'équivalent de l'impression Mac (CUPS).
+   On passe donc par **SumatraPDF** (un imprimeur de PDF silencieux et gratuit),
+   lui aussi rangé dans `assets\bin\win32\SumatraPDF.exe`. La taille
+   d'étiquette se règle **une fois** dans les préférences du pilote
+   d'imprimante Windows.
+3. **L'interface** est la même qu'on macOS (PySide6). Le code choisit
+   automatiquement le bon comportement selon le système (`printer.py`).
+
+### Installer l'app sur un poste de boutique Windows
+
+1. Va sur la page des releases :
+   <https://github.com/DwennK/iPhoneLabelPrinter/releases>
+2. Télécharge le fichier **`iPhoneLabelPrinter.exe`** de la dernière version.
+3. Mets-le dans un dossier **où l'utilisateur peut écrire** : par exemple sur
+   le Bureau, ou dans `C:\Users\<nom>\iPhoneLabelPrinter\`.
+   ⚠️ **Évite `C:\Program Files\`** : la mise à jour automatique a besoin de
+   remplacer le `.exe`, et `Program Files` demanderait les droits
+   administrateur à chaque fois (la maj échouerait silencieusement).
+4. Ajoute l'imprimante thermique dans *Paramètres > Bluetooth et appareils >
+   Imprimantes et scanners*, et règle la taille d'étiquette dans les
+   préférences du pilote.
+5. Double-clique sur `iPhoneLabelPrinter.exe`. C'est tout.
+
+Au premier lancement, Windows SmartScreen peut afficher un avertissement
+(« éditeur inconnu ») parce que l'exe n'est pas signé : *Informations
+complémentaires > Exécuter quand même*. C'est normal pour un outil interne.
+
+### La mise à jour automatique, vue côté utilisateur
+
+- À chaque ouverture, l'app regarde discrètement s'il existe une version plus
+  récente sur GitHub.
+- Si oui → une fenêtre : **« Une nouvelle version est disponible, l'installer
+  maintenant ? »**. S'il accepte, l'app télécharge, se remplace et redémarre
+  toute seule.
+- **S'il n'y a pas internet, l'app s'ouvre quand même normalement.** La
+  vérification ne bloque jamais le démarrage.
+
+### Publier une nouvelle version (ce que TU fais)
+
+C'est le point important. Tu **n'as pas besoin d'une machine Windows** : un
+serveur Windows gratuit de GitHub fabrique le `.exe` à ta place.
+
+À chaque fois que tu veux livrer une amélioration :
+
+```bash
+# 1. Tu modifies le code, puis tu changes le numéro de version dans version.py
+#    exemple :  __version__ = "1.0.1"
+
+# 2. Tu enregistres et tu poses une "étiquette" de version (le tag) :
+git commit -am "Release 1.0.1"
+git tag v1.0.1
+git push origin main
+git push origin v1.0.1
+```
+
+Et c'est fini. Pousser le tag `v1.0.1` déclenche automatiquement :
+le serveur GitHub compile le `.exe`, crée la release `v1.0.1`, et y attache
+le fichier. Tous les postes proposeront la maj au prochain lancement.
+
+> 💡 Le numéro dans `version.py` (`1.0.1`) **doit** correspondre au tag
+> (`v1.0.1`). Si tu te trompes, la compilation s'arrête avec une erreur claire
+> plutôt que de publier une version incohérente.
+
+Tu peux suivre la compilation dans l'onglet **Actions** du dépôt GitHub. Elle
+prend ~2-3 minutes. Si tu veux juste tester une compilation sans publier de
+release, lance le workflow à la main depuis cet onglet (*Run workflow*).
+
+### Où est rangé quoi (côté Windows)
+
+| Quoi | Où | Rôle |
+| --- | --- | --- |
+| `version.py` | racine du projet | le numéro de version (à changer à chaque release) |
+| `.github/workflows/release.yml` | dépôt | la recette qui compile le `.exe` sur GitHub |
+| `updater.py` | racine | la logique de mise à jour automatique |
+| `assets\bin\win32\` | projet | les binaires Windows embarqués (libimobiledevice + SumatraPDF) |
+| `iPhoneLabelPrinter.exe` | release GitHub | ce que les boutiques téléchargent et lancent |
+
+---
+
 ## Current Capabilities
 
 - Detect one or more USB-connected iPhones.
