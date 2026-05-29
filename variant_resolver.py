@@ -34,6 +34,9 @@ class VariantInfo:
     def found(self) -> bool:
         return bool(self.color or self.storage)
 
+    def __bool__(self) -> bool:
+        return self.found
+
 
 MODEL_NUMBER_RE = re.compile(r"^[A-Z0-9]{4,5}")
 
@@ -75,10 +78,17 @@ def _build_local_model_variants() -> dict[str, VariantInfo]:
 LOCAL_MODEL_NUMBER_VARIANTS = _build_local_model_variants()
 
 
+# Model numbers observed in the shop that are newer than the generated table.
+LOCAL_MODEL_NUMBER_OVERRIDES: dict[str, VariantInfo] = {
+    "MYNH3": _variant("Black Titanium", "256 GB", "local model-number override"),
+}
+
+
 # Fallback for numeric DeviceColor/DeviceEnclosureColor pairs observed on real
 # hardware. These are deliberately scoped by ProductType because the same code
 # can mean different colors on different iPhone generations.
 PRODUCT_COLOR_CODE_VARIANTS: dict[tuple[str, str, str], VariantInfo] = {
+    ("iPhone17,1", "1", "1"): _variant("Black Titanium", "", "local color-code table"),
     ("iPhone18,3", "1", "2"): _variant("White", "", "local color-code table"),
 }
 
@@ -155,7 +165,12 @@ def color_options_for_product_type(product_type: str) -> tuple[str, ...]:
 
 
 def lookup_local_model_variant(model_number: str) -> VariantInfo:
-    return LOCAL_MODEL_NUMBER_VARIANTS.get(normalize_model_number(model_number), VariantInfo())
+    normalized = normalize_model_number(model_number)
+    return (
+        LOCAL_MODEL_NUMBER_OVERRIDES.get(normalized)
+        or LOCAL_MODEL_NUMBER_VARIANTS.get(normalized)
+        or VariantInfo()
+    )
 
 
 def lookup_color_code_variant(

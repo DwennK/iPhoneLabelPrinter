@@ -38,6 +38,7 @@ from iphone_reader import (
 from label_generator import generate_label_pdf, write_label_pdf
 from printer import PrinterInfo, list_printers
 from utils import AppError, CommandNotFoundError, IPhoneInfo
+from variant_resolver import color_options_for_product_type
 
 
 BASE_DIR = Path(__file__).resolve().parent
@@ -236,6 +237,21 @@ class MainWindow(QMainWindow):
         self.statusBar().showMessage(message, 7000)
         QMessageBox.information(self, title, message)
 
+    def set_color_choices(self, product_type: str = "", selected_color: str = "") -> None:
+        current = selected_color.strip() or self.color_combo.currentText().strip()
+        choices = ["", *color_options_for_product_type(product_type)]
+        for color in COLOR_CHOICES:
+            if color not in choices:
+                choices.append(color)
+        if current and current not in choices:
+            choices.insert(1, current)
+
+        self.color_combo.blockSignals(True)
+        self.color_combo.clear()
+        self.color_combo.addItems(choices)
+        self.color_combo.setCurrentText(current)
+        self.color_combo.blockSignals(False)
+
     def set_busy(self, busy: bool) -> None:
         self.scan_button.setEnabled(not busy)
         self.generate_button.setEnabled(not busy)
@@ -313,7 +329,7 @@ class MainWindow(QMainWindow):
         self.model_edit.setText(info.marketing_model)
         self.technical_model_edit.setText(info.technical_model)
         self.storage_edit.setText(info.storage)
-        self.color_combo.setCurrentText(info.color)
+        self.set_color_choices(info.technical_model, info.color)
         self.imei_edit.setText(info.imei)
         self.serial_edit.setText(info.serial_number)
         self.device_name_edit.setText(info.device_name)
@@ -486,7 +502,7 @@ class MainWindow(QMainWindow):
         self.model_edit.clear()
         self.technical_model_edit.clear()
         self.storage_edit.clear()
-        self.color_combo.setCurrentText("")
+        self.set_color_choices("", "")
         self.imei_edit.clear()
         self.serial_edit.clear()
         self.device_name_edit.clear()

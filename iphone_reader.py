@@ -165,6 +165,23 @@ def get_disk_usage(udid: str, timeout: float = 8.0) -> dict[str, str]:
     return parse_key_value_output(result.stdout)
 
 
+def get_disk_capacity_value(udid: str, timeout: float = 4.0) -> str:
+    """Read capacity keys directly to avoid the huge NANDInfo disk-usage dump."""
+
+    for key in ("TotalDiskCapacity", "TotalDataCapacity"):
+        try:
+            result = run_command(
+                ["ideviceinfo", "-u", udid, "-q", "com.apple.disk_usage", "-k", key],
+                timeout=timeout,
+            )
+        except CommandExecutionError:
+            continue
+        value = result.stdout.strip()
+        if value:
+            return value
+    return ""
+
+
 def _nested_dict(value: object, key: str) -> dict:
     if isinstance(value, dict):
         nested = value.get(key)
@@ -261,8 +278,10 @@ def read_iphone_info(udid: str) -> IPhoneInfo:
     marketing_name = marketing_name_for_product_type(product_type) if product_type else None
     model_is_unknown = not bool(marketing_name)
 
-    disk_usage = get_disk_usage(udid)
+    storage_bytes = get_disk_capacity_value(udid)
+    disk_usage = get_disk_usage(udid) if not storage_bytes else {}
     storage_bytes = first_non_empty(
+        storage_bytes,
         disk_usage.get("TotalDiskCapacity"),
         disk_usage.get("TotalDataCapacity"),
         all_info.get("TotalDiskCapacity"),
