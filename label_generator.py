@@ -193,7 +193,7 @@ def write_label_pdf(
         )
 
     pdf.setFont("Helvetica", 5)
-    pdf.drawString(margin, margin, created_at.strftime("%Y-%m-%d %H:%M"))
+    pdf.drawString(margin, margin, created_at.strftime("%d/%m/%Y %H:%M"))
     if info.technical_model:
         pdf.drawRightString(width - margin, margin, info.technical_model)
 
