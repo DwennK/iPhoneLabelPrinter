@@ -114,28 +114,70 @@ def write_label_pdf(
     title = info.marketing_model or "Unknown model"
     detail_parts = [part for part in [info.storage, info.color] if part.strip()]
     detail_line = " - ".join(detail_parts)
+    ios_line = f"iOS: {info.ios_version.strip()}" if info.ios_version.strip() else ""
 
-    qr_size = 17 * mm
-    qr_x = width - margin - qr_size
-    qr_y = height - margin - qr_size
-    text_max_width = usable_width - qr_size - 3 * mm
+    if height > width:
+        info_line_count = 2 + (1 if info.battery_health else 0) + (1 if ios_line else 0)
+        info_line_gap = 3.55 * mm
+        qr_size = min(24 * mm, usable_width * 0.82)
 
-    y = height - margin - 6 * mm
-    _draw_fit_text(pdf, title, margin, y, text_max_width, "Helvetica-Bold", 12)
-    y -= 6 * mm
-    _draw_fit_text(pdf, detail_line, margin, y, text_max_width, "Helvetica", 8)
-    y -= 6 * mm
-    _draw_fit_text(pdf, f"IMEI: {imei or 'Manual entry needed'}", margin, y, usable_width, "Helvetica", 7)
-    y -= 5 * mm
-    _draw_fit_text(pdf, f"S/N: {info.serial_number or '-'}", margin, y, usable_width, "Helvetica", 7)
-    if info.battery_health:
-        battery_line = f"Battery: {info.battery_health}"
-        if info.battery_cycle_count:
-            battery_line += f" - {info.battery_cycle_count} cycles"
+        y = height - margin - 4.2 * mm
+        _draw_fit_text(pdf, title, margin, y, usable_width, "Helvetica-Bold", 13, min_size=8)
+        y -= 4.0 * mm
+        if detail_line:
+            _draw_fit_text(pdf, detail_line, margin, y, usable_width, "Helvetica", 9)
+            y -= 1.0 * mm
+        else:
+            y -= 0.4 * mm
+
+        min_qr_y = margin + 7.8 * mm + (info_line_count - 1) * info_line_gap
+        qr_size = max(12 * mm, min(qr_size, y - min_qr_y))
+        qr_x = (width - qr_size) / 2
+        qr_y = y - qr_size
+        pdf.drawImage(str(qr_path), qr_x, qr_y, width=qr_size, height=qr_size, mask="auto")
+
+        y = qr_y - 2.4 * mm
+        _draw_fit_text(pdf, f"IMEI: {imei or 'Manual entry needed'}", margin, y, usable_width, "Helvetica", 8)
+        if info.battery_health:
+            battery_line = f"Battery: {info.battery_health}"
+            if info.battery_cycle_count:
+                battery_line += f" - {info.battery_cycle_count} cycles"
+            y -= info_line_gap
+            _draw_fit_text(pdf, battery_line, margin, y, usable_width, "Helvetica", 8)
+        if ios_line:
+            y -= info_line_gap
+            _draw_fit_text(pdf, ios_line, margin, y, usable_width, "Helvetica", 8)
+        y -= info_line_gap
+        _draw_fit_text(pdf, f"S/N: {info.serial_number or '-'}", margin, y, usable_width, "Helvetica", 8)
+    else:
+        qr_size = 17 * mm
+        qr_x = width - margin - qr_size
+        qr_y = height - margin - qr_size
+        text_max_width = usable_width - qr_size - 3 * mm
+
+        y = height - margin - 6 * mm
+        _draw_fit_text(pdf, title, margin, y, text_max_width, "Helvetica-Bold", 12)
+        y -= 6 * mm
+        _draw_fit_text(pdf, detail_line, margin, y, text_max_width, "Helvetica", 8)
+        y -= 6 * mm
+        line_width = text_max_width if y >= qr_y - 1 * mm else usable_width
+        _draw_fit_text(pdf, f"IMEI: {imei or 'Manual entry needed'}", margin, y, line_width, "Helvetica", 7)
+        if info.battery_health:
+            battery_line = f"Battery: {info.battery_health}"
+            if info.battery_cycle_count:
+                battery_line += f" - {info.battery_cycle_count} cycles"
+            y -= 5 * mm
+            line_width = text_max_width if y >= qr_y - 1 * mm else usable_width
+            _draw_fit_text(pdf, battery_line, margin, y, line_width, "Helvetica", 7)
+        if ios_line:
+            y -= 5 * mm
+            line_width = text_max_width if y >= qr_y - 1 * mm else usable_width
+            _draw_fit_text(pdf, ios_line, margin, y, line_width, "Helvetica", 7)
         y -= 5 * mm
-        _draw_fit_text(pdf, battery_line, margin, y, usable_width, "Helvetica", 7)
+        line_width = text_max_width if y >= qr_y - 1 * mm else usable_width
+        _draw_fit_text(pdf, f"S/N: {info.serial_number or '-'}", margin, y, line_width, "Helvetica", 7)
 
-    pdf.drawImage(str(qr_path), qr_x, qr_y, width=qr_size, height=qr_size, mask="auto")
+        pdf.drawImage(str(qr_path), qr_x, qr_y, width=qr_size, height=qr_size, mask="auto")
 
     if barcode_path:
         barcode_width = 34 * mm

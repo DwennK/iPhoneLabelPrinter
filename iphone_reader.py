@@ -335,6 +335,14 @@ def read_iphone_info(udid: str) -> IPhoneInfo:
             get_value(udid, "DeviceName"),
             all_info.get("DeviceName"),
         ),
+        ios_version=first_non_empty(
+            get_value(udid, "ProductVersion"),
+            all_info.get("ProductVersion"),
+        ),
+        build_version=first_non_empty(
+            get_value(udid, "BuildVersion"),
+            all_info.get("BuildVersion"),
+        ),
         battery_health=battery_health,
         battery_cycle_count=battery_cycle_count,
         model_is_unknown=model_is_unknown,

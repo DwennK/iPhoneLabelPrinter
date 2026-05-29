@@ -39,6 +39,8 @@ class IPhoneInfo:
     imei: str = ""
     serial_number: str = ""
     device_name: str = ""
+    ios_version: str = ""
+    build_version: str = ""
     battery_health: str = ""
     battery_cycle_count: str = ""
     model_is_unknown: bool = False

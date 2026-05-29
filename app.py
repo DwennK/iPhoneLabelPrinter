@@ -140,6 +140,7 @@ class MainWindow(QMainWindow):
         self.imei_edit = QLineEdit()
         self.serial_edit = QLineEdit()
         self.device_name_edit = QLineEdit()
+        self.ios_version_edit = QLineEdit()
         self.battery_health_edit = QLineEdit()
 
         for field in [
@@ -149,6 +150,7 @@ class MainWindow(QMainWindow):
             self.imei_edit,
             self.serial_edit,
             self.device_name_edit,
+            self.ios_version_edit,
             self.battery_health_edit,
         ]:
             field.textChanged.connect(self.update_preview_from_form)
@@ -202,6 +204,7 @@ class MainWindow(QMainWindow):
         form_layout.addRow("IMEI", self.imei_edit)
         form_layout.addRow("Serial number", self.serial_edit)
         form_layout.addRow("Device name", self.device_name_edit)
+        form_layout.addRow("iOS version", self.ios_version_edit)
         form_layout.addRow("Battery health", self.battery_health_edit)
         content_layout.addWidget(form_box, 0, 0)
 
@@ -333,6 +336,7 @@ class MainWindow(QMainWindow):
         self.imei_edit.setText(info.imei)
         self.serial_edit.setText(info.serial_number)
         self.device_name_edit.setText(info.device_name)
+        self.ios_version_edit.setText(info.ios_version)
         battery_text = info.battery_health
         if info.battery_cycle_count:
             battery_text = f"{battery_text} ({info.battery_cycle_count} cycles)" if battery_text else f"{info.battery_cycle_count} cycles"
@@ -351,6 +355,7 @@ class MainWindow(QMainWindow):
             imei=self.imei_edit.text().strip(),
             serial_number=self.serial_edit.text().strip(),
             device_name=self.device_name_edit.text().strip(),
+            ios_version=self.ios_version_edit.text().strip(),
             battery_health=self.battery_health_edit.text().strip(),
         )
 
@@ -506,6 +511,7 @@ class MainWindow(QMainWindow):
         self.imei_edit.clear()
         self.serial_edit.clear()
         self.device_name_edit.clear()
+        self.ios_version_edit.clear()
         self.battery_health_edit.clear()
         self.current_pdf_path = None
         self.generated_path_label.setText("No label generated yet.")
