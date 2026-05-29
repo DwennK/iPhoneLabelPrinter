@@ -601,25 +601,34 @@ worker/dialog glue in `app.py`.
 
 ### Publishing a new release
 
+Releases are built and published automatically by GitHub Actions
+(`.github/workflows/release.yml`) on a Windows runner — no local Windows
+machine needed. The full process is:
+
 ```bash
-# 1. Bump the version
-#    edit version.py -> __version__ = "1.0.1"
+# 1. Bump the version in version.py  ->  __version__ = "1.0.1"
 git commit -am "Release 1.0.1"
 
-# 2. Tag and push
+# 2. Tag and push (the tag must match version.py; the CI verifies this)
 git tag v1.0.1
-git push origin main --tags
-
-# 3. Build the Windows exe (on a Windows machine, see above), then publish:
-gh release create v1.0.1 dist/iPhoneLabelPrinter.exe \
-    --title "v1.0.1" \
-    --notes "What changed in this version."
+git push origin main
+git push origin v1.0.1
 ```
 
-The tag (`v1.0.1`) must match `__version__` (`1.0.1`); the updater strips the
-leading `v`. Every existing install will offer this version on its next launch.
-Draft and pre-release releases are ignored by `releases/latest`, so you can
-stage a release before it goes live to shops.
+Pushing the `v1.0.1` tag triggers the workflow, which:
+
+1. checks that the tag matches `__version__`,
+2. builds `iPhoneLabelPrinter.exe` with PyInstaller `--onefile`,
+3. creates the GitHub Release `v1.0.1` with the exe attached and
+   auto-generated notes.
+
+Every existing install then offers this version on its next launch. Draft and
+pre-release releases are ignored by `releases/latest`, so you can stage one
+before it goes live to shops. You can also trigger a build manually (without
+releasing) from the repository's **Actions** tab via *Run workflow*.
+
+To build the exe locally on a Windows machine instead, see the
+*Windows Executable* section above.
 
 ## Optional Commercial Variant Enrichment
 
