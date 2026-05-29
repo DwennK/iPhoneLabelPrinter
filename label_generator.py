@@ -28,8 +28,8 @@ def _draw_fit_text(
     y: float,
     max_width: float,
     font_name: str,
-    font_size: int,
-    min_size: int = 6,
+    font_size: float,
+    min_size: float = 6,
 ) -> None:
     """Draw text, shrinking only when necessary for narrow thermal labels."""
 
@@ -39,6 +39,16 @@ def _draw_fit_text(
     size = font_size
     while size > min_size and pdf.stringWidth(text, font_name, size) > max_width:
         size -= 1
+    if pdf.stringWidth(text, font_name, size) > max_width:
+        ellipsis = "..."
+        while text and pdf.stringWidth(f"{text}{ellipsis}", font_name, size) > max_width:
+            text = text[:-1].rstrip()
+        if not text:
+            text = ellipsis if pdf.stringWidth(ellipsis, font_name, size) <= max_width else ""
+        else:
+            text = f"{text}{ellipsis}"
+    if not text:
+        return
     pdf.setFont(font_name, size)
     pdf.drawString(x, y, text)
 
@@ -77,8 +87,8 @@ def _make_barcode_png(data: str) -> Path | None:
 def write_label_pdf(
     info: IPhoneInfo,
     pdf_path: str | Path,
-    label_width_mm: int = LABEL_WIDTH_MM,
-    label_height_mm: int = LABEL_HEIGHT_MM,
+    label_width_mm: float = LABEL_WIDTH_MM,
+    label_height_mm: float = LABEL_HEIGHT_MM,
     created_at: datetime | None = None,
 ) -> Path:
     """Write one thermal label PDF to an exact path and return it."""
@@ -158,10 +168,10 @@ def write_label_pdf(
 def generate_label_pdf(
     info: IPhoneInfo,
     output_dir: str | Path = "generated_labels",
-    label_width_mm: int = LABEL_WIDTH_MM,
-    label_height_mm: int = LABEL_HEIGHT_MM,
+    label_width_mm: float = LABEL_WIDTH_MM,
+    label_height_mm: float = LABEL_HEIGHT_MM,
 ) -> Path:
-    """Generate a 62 mm x 40 mm thermal label PDF and return its path."""
+    """Generate a thermal label PDF and return its path."""
 
     output_path = Path(output_dir)
     output_path.mkdir(parents=True, exist_ok=True)
