@@ -2,7 +2,7 @@
 
 Local macOS desktop app for a phone repair shop.
 
-The app detects an iPhone connected by USB, reads device metadata through `libimobiledevice`, lets staff confirm or edit missing fields, generates a thermal PDF label, and prints it through the native macOS print dialog.
+The app detects an iPhone connected by USB, reads device metadata through `libimobiledevice`, lets staff confirm or edit missing fields, generates a thermal PDF label, and submits it to the selected macOS printer with the configured label size.
 
 This is an internal shop tool. It is not designed for App Store distribution.
 
@@ -13,8 +13,8 @@ This is an internal shop tool. It is not designed for App Store distribution.
 - Resolve marketing model names from a local `ProductType` mapping.
 - Resolve color and storage from a local Apple order-number variant database.
 - Allow manual correction for fields that Apple/libimobiledevice does not expose reliably.
-- Generate 62 mm x 40 mm thermal PDF labels.
-- Print labels through the native macOS print dialog.
+- Generate thermal PDF labels using the configured size and orientation.
+- Print labels through CUPS with a matching custom media size.
 - Show operational errors in the GUI instead of only printing them in Terminal.
 
 ## Requirements
@@ -84,7 +84,9 @@ python3.12 --version
    - Battery health
 7. Select the thermal printer.
 8. Click **Generate Label**.
-9. Click **Print Label** and confirm the macOS print dialog.
+9. Click **Print Label**.
+
+Label dimensions and orientation can be changed in the **Settings** tab. The print job uses the effective label size as a CUPS custom media size, for example `Custom.62x40mm`, so the macOS paper-size dialog is not required during normal use.
 
 Generated PDFs are saved in:
 

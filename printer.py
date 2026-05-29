@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from pathlib import Path
 import re
 
 from utils import AppError, CommandExecutionError, run_command
@@ -16,6 +17,18 @@ class PrinterError(AppError):
 class PrinterInfo:
     name: str
     is_default: bool = False
+
+
+def _format_custom_media(width_mm: float, height_mm: float) -> str:
+    width = f"{width_mm:g}"
+    height = f"{height_mm:g}"
+    return f"Custom.{width}x{height}mm"
+
+
+def _format_orientation_request(orientation: str) -> str:
+    if orientation == "landscape":
+        return "4"
+    return "3"
 
 
 def list_printers() -> list[PrinterInfo]:
@@ -47,3 +60,39 @@ def list_printers() -> list[PrinterInfo]:
 
     printers.sort(key=lambda item: (not item.is_default, item.name.lower()))
     return printers
+
+
+def submit_label_print_job(
+    printer_name: str,
+    pdf_path: str | Path,
+    label_width_mm: float,
+    label_height_mm: float,
+    orientation: str,
+) -> str:
+    """Submit a PDF label to CUPS using the app's custom media size."""
+
+    pdf_path = Path(pdf_path)
+    if not pdf_path.exists():
+        raise PrinterError(f"Label PDF was not found: {pdf_path}")
+
+    media = _format_custom_media(label_width_mm, label_height_mm)
+    try:
+        result = run_command(
+            [
+                "lp",
+                "-d",
+                printer_name,
+                "-o",
+                f"media={media}",
+                "-o",
+                f"orientation-requested={_format_orientation_request(orientation)}",
+                "-o",
+                "scaling=100",
+                str(pdf_path),
+            ],
+            timeout=12.0,
+        )
+    except CommandExecutionError as exc:
+        raise PrinterError(f"Could not submit the print job: {exc}") from exc
+
+    return result.stdout.strip()

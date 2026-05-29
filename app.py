@@ -4,15 +4,13 @@ from pathlib import Path
 import sys
 import tempfile
 
-from PySide6.QtCore import QMarginsF, QSizeF, Qt
-from PySide6.QtGui import QPageLayout, QPageSize, QPainter
+from PySide6.QtCore import QSettings, Qt
 from PySide6.QtPdf import QPdfDocument
 from PySide6.QtPdfWidgets import QPdfView
-from PySide6.QtPrintSupport import QPrintDialog, QPrinter
 from PySide6.QtWidgets import (
     QApplication,
     QComboBox,
-    QDialog,
+    QDoubleSpinBox,
     QFormLayout,
     QGridLayout,
     QGroupBox,
@@ -23,6 +21,7 @@ from PySide6.QtWidgets import (
     QMessageBox,
     QPushButton,
     QStatusBar,
+    QTabWidget,
     QVBoxLayout,
     QWidget,
     QInputDialog,
@@ -35,19 +34,31 @@ from iphone_reader import (
     detect_devices,
     read_iphone_info,
 )
-from label_generator import generate_label_pdf, write_label_pdf
-from printer import PrinterInfo, list_printers
+from label_generator import LABEL_HEIGHT_MM, LABEL_WIDTH_MM, generate_label_pdf, write_label_pdf
+from printer import PrinterInfo, list_printers, submit_label_print_job
 from utils import AppError, CommandNotFoundError, IPhoneInfo
 from variant_resolver import color_options_for_product_type
 
 
 BASE_DIR = Path(__file__).resolve().parent
 GENERATED_LABELS_DIR = BASE_DIR / "generated_labels"
-LABEL_PAGE_SIZE = QPageSize(
-    QSizeF(62.0, 40.0),
-    QPageSize.Unit.Millimeter,
-    "Thermal Label 62 x 40 mm",
+ORGANIZATION_NAME = "iPhoneLabelPrinter"
+APPLICATION_NAME = "iPhoneLabelPrinter"
+SETTINGS_LABEL_WIDTH_KEY = "label/width_mm"
+SETTINGS_LABEL_HEIGHT_KEY = "label/height_mm"
+SETTINGS_LABEL_ORIENTATION_KEY = "label/orientation"
+DEFAULT_LABEL_WIDTH_MM = float(LABEL_WIDTH_MM)
+DEFAULT_LABEL_HEIGHT_MM = float(LABEL_HEIGHT_MM)
+DEFAULT_LABEL_ORIENTATION = (
+    "landscape" if DEFAULT_LABEL_WIDTH_MM >= DEFAULT_LABEL_HEIGHT_MM else "portrait"
 )
+MIN_LABEL_WIDTH_MM = 30.0
+MIN_LABEL_HEIGHT_MM = 25.0
+MAX_LABEL_SIZE_MM = 200.0
+LABEL_ORIENTATIONS = {
+    "portrait": "Portrait",
+    "landscape": "Landscape",
+}
 
 COLOR_CHOICES = [
     "",
@@ -100,19 +111,26 @@ class LabelPreview(QPdfView):
 
     def __init__(self) -> None:
         super().__init__()
-        self._document = QPdfDocument(self)
+        self._document = QPdfDocument()
         self._temp_dir = tempfile.TemporaryDirectory(prefix="iphone_label_preview_")
         self._preview_path = Path(self._temp_dir.name) / "preview.pdf"
         self.setMinimumSize(360, 230)
         self.setDocument(self._document)
         self.setPageMode(QPdfView.PageMode.SinglePage)
         self.setZoomMode(QPdfView.ZoomMode.FitInView)
+        self.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+        self.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
         app = QApplication.instance()
         if app is not None:
             app.aboutToQuit.connect(self._document.close)
 
-    def set_info(self, info: IPhoneInfo) -> None:
-        write_label_pdf(info, self._preview_path)
+    def set_info(self, info: IPhoneInfo, label_width_mm: float, label_height_mm: float) -> None:
+        write_label_pdf(
+            info,
+            self._preview_path,
+            label_width_mm=label_width_mm,
+            label_height_mm=label_height_mm,
+        )
         self._document.close()
         self._document.load(str(self._preview_path))
 
@@ -125,6 +143,16 @@ class MainWindow(QMainWindow):
         self.current_pdf_path: Path | None = None
         self.connected_devices: list[ConnectedDevice] = []
         self.printers: list[PrinterInfo] = []
+        self.settings = QSettings(ORGANIZATION_NAME, APPLICATION_NAME)
+        self.label_width_mm = self.load_setting_float(
+            SETTINGS_LABEL_WIDTH_KEY,
+            DEFAULT_LABEL_WIDTH_MM,
+        )
+        self.label_height_mm = self.load_setting_float(
+            SETTINGS_LABEL_HEIGHT_KEY,
+            DEFAULT_LABEL_HEIGHT_MM,
+        )
+        self.label_orientation = self.load_label_orientation()
 
         self.status_label = QLabel("No iPhone scanned.")
         self.status_label.setWordWrap(True)
@@ -172,6 +200,31 @@ class MainWindow(QMainWindow):
         self.clear_button = QPushButton("Clear")
         self.clear_button.clicked.connect(self.clear_form)
 
+        self.label_width_spin = QDoubleSpinBox()
+        self.label_width_spin.setRange(MIN_LABEL_WIDTH_MM, MAX_LABEL_SIZE_MM)
+        self.label_width_spin.setDecimals(1)
+        self.label_width_spin.setSingleStep(1.0)
+        self.label_width_spin.setSuffix(" mm")
+        self.label_width_spin.setValue(self.label_width_mm)
+
+        self.label_height_spin = QDoubleSpinBox()
+        self.label_height_spin.setRange(MIN_LABEL_HEIGHT_MM, MAX_LABEL_SIZE_MM)
+        self.label_height_spin.setDecimals(1)
+        self.label_height_spin.setSingleStep(1.0)
+        self.label_height_spin.setSuffix(" mm")
+        self.label_height_spin.setValue(self.label_height_mm)
+
+        self.label_orientation_combo = QComboBox()
+        for orientation_key, orientation_label in LABEL_ORIENTATIONS.items():
+            self.label_orientation_combo.addItem(orientation_label, orientation_key)
+        orientation_index = self.label_orientation_combo.findData(self.label_orientation)
+        self.label_orientation_combo.setCurrentIndex(max(orientation_index, 0))
+
+        self.save_settings_button = QPushButton("Save Settings")
+        self.save_settings_button.clicked.connect(self.save_settings)
+        self.reset_label_size_button = QPushButton("Reset Label Size")
+        self.reset_label_size_button.clicked.connect(self.reset_label_size_settings)
+
         self._build_layout()
         self.setStatusBar(QStatusBar())
         self.refresh_printers(show_success=False)
@@ -179,8 +232,20 @@ class MainWindow(QMainWindow):
 
     def _build_layout(self) -> None:
         root = QWidget()
-        main_layout = QVBoxLayout(root)
-        main_layout.setContentsMargins(18, 18, 18, 18)
+        root_layout = QVBoxLayout(root)
+        root_layout.setContentsMargins(12, 12, 12, 12)
+
+        tabs = QTabWidget()
+        tabs.addTab(self.build_label_tab(), "Label")
+        tabs.addTab(self.build_settings_tab(), "Settings")
+        root_layout.addWidget(tabs)
+
+        self.setCentralWidget(root)
+
+    def build_label_tab(self) -> QWidget:
+        tab = QWidget()
+        main_layout = QVBoxLayout(tab)
+        main_layout.setContentsMargins(6, 12, 6, 6)
         main_layout.setSpacing(14)
 
         status_box = QGroupBox("Connection")
@@ -230,7 +295,80 @@ class MainWindow(QMainWindow):
         buttons_layout.addWidget(self.print_button)
         main_layout.addLayout(buttons_layout)
 
-        self.setCentralWidget(root)
+        return tab
+
+    def build_settings_tab(self) -> QWidget:
+        tab = QWidget()
+        layout = QVBoxLayout(tab)
+        layout.setContentsMargins(6, 12, 6, 6)
+        layout.setSpacing(14)
+
+        label_size_box = QGroupBox("Label Size")
+        label_size_layout = QFormLayout(label_size_box)
+        label_size_layout.setFieldGrowthPolicy(QFormLayout.FieldGrowthPolicy.ExpandingFieldsGrow)
+        label_size_layout.addRow("Width", self.label_width_spin)
+        label_size_layout.addRow("Height", self.label_height_spin)
+        label_size_layout.addRow("Orientation", self.label_orientation_combo)
+        layout.addWidget(label_size_box)
+
+        buttons_layout = QHBoxLayout()
+        buttons_layout.addStretch(1)
+        buttons_layout.addWidget(self.reset_label_size_button)
+        buttons_layout.addWidget(self.save_settings_button)
+        layout.addLayout(buttons_layout)
+        layout.addStretch(1)
+
+        return tab
+
+    def load_setting_float(self, key: str, default: float) -> float:
+        value = self.settings.value(key, default)
+        try:
+            parsed = float(value)
+        except (TypeError, ValueError):
+            return default
+        if parsed <= 0:
+            return default
+        if key == SETTINGS_LABEL_WIDTH_KEY:
+            return max(MIN_LABEL_WIDTH_MM, min(parsed, MAX_LABEL_SIZE_MM))
+        if key == SETTINGS_LABEL_HEIGHT_KEY:
+            return max(MIN_LABEL_HEIGHT_MM, min(parsed, MAX_LABEL_SIZE_MM))
+        return parsed
+
+    def load_label_orientation(self) -> str:
+        value = self.settings.value(SETTINGS_LABEL_ORIENTATION_KEY, DEFAULT_LABEL_ORIENTATION)
+        orientation = str(value)
+        if orientation in LABEL_ORIENTATIONS:
+            return orientation
+        return DEFAULT_LABEL_ORIENTATION
+
+    def effective_label_size_mm(self) -> tuple[float, float]:
+        short_side = min(self.label_width_mm, self.label_height_mm)
+        long_side = max(self.label_width_mm, self.label_height_mm)
+        if self.label_orientation == "portrait":
+            return short_side, long_side
+        return long_side, short_side
+
+    def save_settings(self) -> None:
+        self.label_width_mm = self.label_width_spin.value()
+        self.label_height_mm = self.label_height_spin.value()
+        self.label_orientation = (
+            self.label_orientation_combo.currentData() or DEFAULT_LABEL_ORIENTATION
+        )
+        self.settings.setValue(SETTINGS_LABEL_WIDTH_KEY, self.label_width_mm)
+        self.settings.setValue(SETTINGS_LABEL_HEIGHT_KEY, self.label_height_mm)
+        self.settings.setValue(SETTINGS_LABEL_ORIENTATION_KEY, self.label_orientation)
+        self.settings.sync()
+        self.current_pdf_path = None
+        self.generated_path_label.setText("No label generated yet.")
+        self.update_preview_from_form()
+        self.statusBar().showMessage("Settings saved.", 5000)
+
+    def reset_label_size_settings(self) -> None:
+        self.label_width_spin.setValue(DEFAULT_LABEL_WIDTH_MM)
+        self.label_height_spin.setValue(DEFAULT_LABEL_HEIGHT_MM)
+        orientation_index = self.label_orientation_combo.findData(DEFAULT_LABEL_ORIENTATION)
+        self.label_orientation_combo.setCurrentIndex(max(orientation_index, 0))
+        self.save_settings()
 
     def show_error(self, title: str, message: str) -> None:
         self.statusBar().showMessage(message, 10000)
@@ -360,7 +498,8 @@ class MainWindow(QMainWindow):
         )
 
     def update_preview_from_form(self) -> None:
-        self.preview.set_info(self.form_info())
+        label_width_mm, label_height_mm = self.effective_label_size_mm()
+        self.preview.set_info(self.form_info(), label_width_mm, label_height_mm)
 
     def refresh_printers(self, show_success: bool = True) -> None:
         try:
@@ -419,7 +558,13 @@ class MainWindow(QMainWindow):
 
         try:
             info = self.form_info()
-            self.current_pdf_path = generate_label_pdf(info, GENERATED_LABELS_DIR)
+            label_width_mm, label_height_mm = self.effective_label_size_mm()
+            self.current_pdf_path = generate_label_pdf(
+                info,
+                GENERATED_LABELS_DIR,
+                label_width_mm=label_width_mm,
+                label_height_mm=label_height_mm,
+            )
             self.generated_path_label.setText(f"Generated: {self.current_pdf_path}")
             self.statusBar().showMessage(f"Label generated: {self.current_pdf_path.name}", 7000)
         except Exception as exc:
@@ -443,65 +588,20 @@ class MainWindow(QMainWindow):
                 return
 
         try:
-            if self.print_pdf_with_dialog(printer_name, self.current_pdf_path):
-                self.statusBar().showMessage("Print job submitted.", 7000)
-            else:
-                self.statusBar().showMessage("Print cancelled.", 4000)
+            label_width_mm, label_height_mm = self.effective_label_size_mm()
+            output = submit_label_print_job(
+                printer_name,
+                self.current_pdf_path,
+                label_width_mm,
+                label_height_mm,
+                self.label_orientation,
+            )
+            message = "Print job submitted."
+            if output:
+                message = output
+            self.statusBar().showMessage(message, 7000)
         except AppError as exc:
             self.show_error("Print Failed", str(exc))
-
-    def print_pdf_with_dialog(self, printer_name: str, pdf_path: Path) -> bool:
-        pdf_path = Path(pdf_path)
-        if not pdf_path.exists():
-            raise AppError(f"Label PDF was not found: {pdf_path}")
-
-        document = QPdfDocument(self)
-        load_status = document.load(str(pdf_path))
-        if load_status != QPdfDocument.Error.None_:
-            raise AppError(f"Could not open label PDF for printing: {pdf_path}")
-
-        printer = QPrinter(QPrinter.PrinterMode.HighResolution)
-        printer.setPrinterName(printer_name)
-        printer.setResolution(300)
-        printer.setFullPage(True)
-        printer.setPageLayout(
-            QPageLayout(
-                LABEL_PAGE_SIZE,
-                QPageLayout.Orientation.Portrait,
-                QMarginsF(0.0, 0.0, 0.0, 0.0),
-                QPageLayout.Unit.Millimeter,
-            )
-        )
-
-        dialog = QPrintDialog(printer, self)
-        dialog.setWindowTitle("Print Label")
-        if dialog.exec() != QDialog.DialogCode.Accepted:
-            document.close()
-            return False
-
-        painter = QPainter()
-        if not painter.begin(printer):
-            document.close()
-            raise AppError("Could not start the print job.")
-
-        try:
-            for page_index in range(document.pageCount()):
-                if page_index > 0 and not printer.newPage():
-                    raise AppError("Could not add a new page to the print job.")
-
-                page_rect = printer.pageRect(QPrinter.Unit.DevicePixel).toRect()
-                if page_rect.isEmpty():
-                    raise AppError("The selected printer returned an empty printable area.")
-
-                image = document.render(page_index, page_rect.size())
-                if image.isNull():
-                    raise AppError("Could not render the label PDF for printing.")
-                painter.drawImage(page_rect, image)
-        finally:
-            painter.end()
-            document.close()
-
-        return True
 
     def clear_form(self) -> None:
         self.model_edit.clear()
