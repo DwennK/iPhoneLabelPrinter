@@ -4,7 +4,9 @@ from pathlib import Path
 import sys
 import tempfile
 
-from PySide6.QtCore import QSettings, Qt
+from PySide6.QtCore import QObject, QSettings, QThread, QTimer, Qt, Signal
+from PySide6.QtGui import QDesktopServices
+from PySide6.QtCore import QUrl
 from PySide6.QtPdf import QPdfDocument
 from PySide6.QtPdfWidgets import QPdfView
 from PySide6.QtWidgets import (
@@ -19,6 +21,7 @@ from PySide6.QtWidgets import (
     QLineEdit,
     QMainWindow,
     QMessageBox,
+    QProgressDialog,
     QPushButton,
     QStatusBar,
     QTabWidget,
@@ -39,6 +42,8 @@ from label_generator import LABEL_HEIGHT_MM, LABEL_WIDTH_MM, generate_label_pdf,
 from printer import PrinterInfo, list_printers, submit_label_print_job
 from utils import AppError, CommandNotFoundError, IPhoneInfo
 from variant_resolver import color_options_for_product_type
+from version import __version__
+import updater
 
 
 BASE_DIR = Path(__file__).resolve().parent
@@ -107,6 +112,42 @@ COLOR_CHOICES = [
 ]
 
 
+class _UpdateCheckWorker(QObject):
+    """Runs the GitHub release check off the UI thread (fail-open)."""
+
+    finished = Signal(object)  # updater.ReleaseInfo | None
+
+    def run(self) -> None:
+        try:
+            result = updater.check_for_update()
+        except Exception:  # noqa: BLE001 — never let a check crash startup
+            result = None
+        self.finished.emit(result)
+
+
+class _UpdateDownloadWorker(QObject):
+    """Downloads a release asset off the UI thread, reporting progress."""
+
+    progress = Signal(int, int)  # bytes_done, bytes_total
+    finished = Signal(object)  # Path to downloaded file
+    failed = Signal(str)
+
+    def __init__(self, release: "updater.ReleaseInfo") -> None:
+        super().__init__()
+        self._release = release
+
+    def run(self) -> None:
+        try:
+            path = updater.download_asset(
+                self._release,
+                progress=lambda done, total: self.progress.emit(done, total),
+            )
+        except Exception as exc:  # noqa: BLE001 — surfaced via failed signal
+            self.failed.emit(str(exc))
+            return
+        self.finished.emit(path)
+
+
 class LabelPreview(QPdfView):
     """PDF-backed preview using the same renderer as printed labels."""
 
@@ -139,11 +180,14 @@ class LabelPreview(QPdfView):
 class MainWindow(QMainWindow):
     def __init__(self) -> None:
         super().__init__()
-        self.setWindowTitle("iPhoneLabelPrinter")
+        self.setWindowTitle(f"iPhoneLabelPrinter {__version__}")
         self.resize(1040, 680)
         self.current_pdf_path: Path | None = None
         self.connected_devices: list[ConnectedDevice] = []
         self.printers: list[PrinterInfo] = []
+        self._update_thread: QThread | None = None
+        self._update_worker: QObject | None = None
+        self._update_in_progress = False
         self.settings = QSettings(ORGANIZATION_NAME, APPLICATION_NAME)
         self.label_width_mm = self.load_setting_float(
             SETTINGS_LABEL_WIDTH_KEY,
@@ -230,6 +274,10 @@ class MainWindow(QMainWindow):
         self.setStatusBar(QStatusBar())
         self.refresh_printers(show_success=False)
         self.update_preview_from_form()
+
+        # Check for updates shortly after the window is shown so startup stays
+        # responsive. Fully non-blocking and fail-open (see updater module).
+        QTimer.singleShot(800, self.start_update_check)
 
     def _build_layout(self) -> None:
         root = QWidget()
@@ -620,10 +668,124 @@ class MainWindow(QMainWindow):
         self.status_label.setText("No iPhone scanned.")
         self.update_preview_from_form()
 
+    # --- Auto-update -----------------------------------------------------
+
+    def start_update_check(self) -> None:
+        if self._update_in_progress or self._update_thread is not None:
+            return
+        thread = QThread(self)
+        worker = _UpdateCheckWorker()
+        worker.moveToThread(thread)
+        thread.started.connect(worker.run)
+        worker.finished.connect(self._on_update_check_finished)
+        worker.finished.connect(thread.quit)
+        worker.finished.connect(worker.deleteLater)
+        thread.finished.connect(self._clear_update_thread)
+        self._update_thread = thread
+        self._update_worker = worker
+        thread.start()
+
+    def _clear_update_thread(self) -> None:
+        if self._update_thread is not None:
+            self._update_thread.deleteLater()
+        self._update_thread = None
+        self._update_worker = None
+
+    def _on_update_check_finished(self, release: object) -> None:
+        if release is None:
+            return
+        notes = release.notes.strip()
+        if len(notes) > 600:
+            notes = notes[:600].rstrip() + "..."
+        detail = (
+            f"A new version is available.\n\n"
+            f"Current version: {__version__}\n"
+            f"New version: {release.version}\n\n"
+            "Install it now? The app will restart."
+        )
+        box = QMessageBox(self)
+        box.setIcon(QMessageBox.Icon.Information)
+        box.setWindowTitle("Update Available")
+        box.setText(detail)
+        if notes:
+            box.setDetailedText(notes)
+        box.setStandardButtons(
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No
+        )
+        box.setDefaultButton(QMessageBox.StandardButton.Yes)
+        if box.exec() != QMessageBox.StandardButton.Yes:
+            self.statusBar().showMessage("Update postponed.", 5000)
+            return
+
+        # Self-update only works in the packaged build. From a source/dev run
+        # there is no executable to replace, so open the release page instead.
+        if not updater.is_frozen():
+            if release.html_url:
+                QDesktopServices.openUrl(QUrl(release.html_url))
+            self.show_info(
+                "Update From Source",
+                "This is a source build. The release page has been opened in your "
+                "browser; update the checkout with git to get the new version.",
+            )
+            return
+
+        self._download_and_install(release)
+
+    def _download_and_install(self, release: object) -> None:
+        self._update_in_progress = True
+        progress = QProgressDialog("Downloading update...", "Cancel", 0, 100, self)
+        progress.setWindowTitle("Updating")
+        progress.setWindowModality(Qt.WindowModality.WindowModal)
+        progress.setMinimumDuration(0)
+        progress.setAutoClose(False)
+        progress.setAutoReset(False)
+
+        thread = QThread(self)
+        worker = _UpdateDownloadWorker(release)
+        worker.moveToThread(thread)
+        thread.started.connect(worker.run)
+
+        def on_progress(done: int, total: int) -> None:
+            if total > 0:
+                progress.setMaximum(total)
+                progress.setValue(done)
+            else:
+                progress.setMaximum(0)  # busy indicator when length unknown
+
+        def cleanup() -> None:
+            thread.quit()
+            thread.wait()
+            worker.deleteLater()
+            thread.deleteLater()
+            progress.close()
+            self._update_in_progress = False
+
+        def on_finished(path: object) -> None:
+            cleanup()
+            try:
+                updater.apply_update_and_restart(path)
+            except updater.UpdateError as exc:
+                self.show_error("Update Failed", str(exc))
+                return
+            QApplication.quit()
+
+        def on_failed(message: str) -> None:
+            cleanup()
+            self.show_error("Update Failed", f"Could not download the update:\n{message}")
+
+        worker.progress.connect(on_progress)
+        worker.finished.connect(on_finished)
+        worker.failed.connect(on_failed)
+        progress.canceled.connect(cleanup)
+
+        thread.start()
+        progress.show()
+
 
 def main() -> int:
     app = QApplication(sys.argv)
     app.setApplicationName("iPhoneLabelPrinter")
+    app.setApplicationVersion(__version__)
     window = MainWindow()
     window.show()
     return app.exec()

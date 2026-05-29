@@ -541,15 +541,85 @@ If a packaged app cannot find Homebrew commands, inspect `PATH` inside the app b
 
 ### Windows Executable
 
+Build a single self-contained `.exe`. `--onefile` is required for the
+auto-updater: a one-file executable can be swapped on disk after the app
+exits, while a one-folder build cannot be replaced cleanly while running.
+
 ```bat
 .venv\Scripts\activate
 pip install pyinstaller
-pyinstaller --windowed --name "iPhoneLabelPrinter" ^
+pyinstaller --onefile --windowed --name "iPhoneLabelPrinter" ^
     --add-data "assets;assets" ^
     app.py
 ```
 
-For a fully self-contained build on Windows, place the libimobiledevice binaries (`idevice_id.exe`, `ideviceinfo.exe`, `idevicediagnostics.exe`, plus their `.dll` files) and `SumatraPDF.exe` in `assets\bin\win32\` before running PyInstaller. `resolve_tool()` will find them inside the bundled app automatically.
+The libimobiledevice binaries (`idevice_id.exe`, `ideviceinfo.exe`, `idevicediagnostics.exe`, plus their `.dll` files) and `SumatraPDF.exe` in `assets\bin\win32\` are embedded automatically; `resolve_tool()` finds them inside the running bundle.
+
+The resulting `dist\iPhoneLabelPrinter.exe` is the file to publish as a GitHub Release asset (see *Versioning and Auto-update* below).
+
+**Install location matters for self-update.** The updater replaces the running
+`.exe` in place. Install the app where the logged-in user can write without
+elevation — for example a folder on the Desktop or under
+`%LOCALAPPDATA%\iPhoneLabelPrinter\`. Avoid `C:\Program Files\`, where
+overwriting the exe would require administrator rights and the silent update
+would fail.
+
+## Versioning and Auto-update
+
+The app checks GitHub Releases at every launch and offers to update itself.
+
+### Version source
+
+`version.py` holds the single source of truth:
+
+```python
+__version__ = "1.0.0"
+GITHUB_REPO = "DwennK/iPhoneLabelPrinter"
+```
+
+It is shown in the window title (`iPhoneLabelPrinter 1.0.0`) and compared
+against the latest release tag. Versions follow SemVer (`MAJOR.MINOR.PATCH`).
+
+### How the update flow works
+
+1. ~0.8 s after the window appears, a background thread queries
+   `https://api.github.com/repos/<repo>/releases/latest`.
+2. The check is **fail-open**: no internet, no published release (HTTP 404),
+   or a malformed response simply means "no update" and the app runs normally.
+   It never blocks startup.
+3. If the latest release tag is newer than `__version__`, a dialog asks the
+   user to install now (release notes shown under *Details*).
+4. On confirm, the matching asset (the `.exe`) is downloaded with a progress
+   bar, a detached helper script waits for the app to exit, swaps the new exe
+   over the old one, and relaunches.
+5. From a source/dev run (`python app.py`, not frozen), there is no exe to
+   replace, so the dialog opens the release page in the browser instead and
+   tells the user to `git pull`.
+
+The relevant code lives in `updater.py` (Qt-free, unit-testable) and the
+worker/dialog glue in `app.py`.
+
+### Publishing a new release
+
+```bash
+# 1. Bump the version
+#    edit version.py -> __version__ = "1.0.1"
+git commit -am "Release 1.0.1"
+
+# 2. Tag and push
+git tag v1.0.1
+git push origin main --tags
+
+# 3. Build the Windows exe (on a Windows machine, see above), then publish:
+gh release create v1.0.1 dist/iPhoneLabelPrinter.exe \
+    --title "v1.0.1" \
+    --notes "What changed in this version."
+```
+
+The tag (`v1.0.1`) must match `__version__` (`1.0.1`); the updater strips the
+leading `v`. Every existing install will offer this version on its next launch.
+Draft and pre-release releases are ignored by `releases/latest`, so you can
+stage a release before it goes live to shops.
 
 ## Optional Commercial Variant Enrichment
 
@@ -573,6 +643,8 @@ The app is local/private by default and does not call that API unless the token 
 - Keep every field editable in the GUI. Apple does not expose every value consistently.
 - Test on a locked phone, untrusted phone, no phone, and trusted phone before shipping changes.
 - Test printing with the actual shop thermal printer, not only PDF generation.
+- Bump `__version__` in `version.py` for every release and publish a matching `vX.Y.Z` GitHub Release with the Windows `.exe` attached, or installed apps will not see the update.
+- Keep the update check fail-open: it must never prevent the app from starting offline.
 
 ## Last Known Real-Device Test
 
