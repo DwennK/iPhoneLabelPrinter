@@ -243,20 +243,24 @@ def _health_percent(full_charge: int | None, design: int | None) -> str:
     return ""
 
 
-# Current full-charge capacity in mAh. Apple renamed this across iOS versions,
-# so we try the modern keys first and fall back to the legacy ones.
-_FULL_CHARGE_KEYS = ("AppleRawMaxCapacity", "NominalChargeCapacity", "FullChargeCapacity")
+# Current full-charge capacity in mAh, preferring the value 3uTools uses
+# (AppleRawMaxCapacity) over the slightly more conservative NominalChargeCapacity.
+# Only the AppleSmartBattery registry exposes these in real mAh: the GasGauge
+# diagnostic reports FullChargeCapacity normalised to 100, which is unusable here.
+_FULL_CHARGE_KEYS = ("AppleRawMaxCapacity", "NominalChargeCapacity")
 _DESIGN_KEYS = ("DesignCapacity",)
 
 
 def get_battery_info(udid: str, timeout: float = 8.0) -> tuple[str, str]:
     """Return battery health percentage and cycle count when diagnostics exposes them.
 
-    iOS reports ``MaxCapacity`` normalised to 100, so it cannot be used as the
-    health figure. Health is instead derived from the raw full-charge capacity
-    relative to the design capacity.
+    Health is derived from the raw full-charge capacity relative to the design
+    capacity (the same ratio the iPhone's Maximum Capacity screen and 3uTools
+    show). ``MaxCapacity`` is normalised to 100 by iOS and cannot be used.
     """
 
+    # GasGauge is a quick, stable source for the cycle count. Its capacity
+    # fields are normalised, so they are deliberately not used for health.
     try:
         gas_result = run_command(
             ["idevicediagnostics", "-u", udid, "diagnostics", "GasGauge"],
@@ -271,27 +275,21 @@ def get_battery_info(udid: str, timeout: float = 8.0) -> tuple[str, str]:
             payload = {}
         gas_gauge = _nested_dict(payload, "GasGauge")
 
-    health = _health_percent(
-        _first_int(gas_gauge, *_FULL_CHARGE_KEYS),
-        _first_int(gas_gauge, *_DESIGN_KEYS),
-    )
     cycle_count = _battery_int(gas_gauge.get("CycleCount"))
 
-    if health and cycle_count:
-        return health, cycle_count
-
+    # AppleSmartBattery carries the raw mAh capacities needed for the health ratio.
     try:
         ioreg_result = run_command(
             ["idevicediagnostics", "-u", udid, "ioregentry", "AppleSmartBattery"],
             timeout=timeout,
         )
     except AppError:
-        return health, cycle_count
+        return "", cycle_count
 
     try:
         payload = plistlib.loads(ioreg_result.stdout.encode("utf-8"))
     except (plistlib.InvalidFileException, ValueError):
-        return health, cycle_count
+        return "", cycle_count
 
     registry = _nested_dict(payload, "IORegistry")
     battery_data = _nested_dict(registry, "BatteryData")
@@ -303,7 +301,7 @@ def get_battery_info(udid: str, timeout: float = 8.0) -> tuple[str, str]:
     if design is None:
         design = _first_int(battery_data, *_DESIGN_KEYS)
 
-    health = health or _health_percent(full_charge, design)
+    health = _health_percent(full_charge, design)
     cycle_count = cycle_count or _battery_int(registry.get("CycleCount"))
     cycle_count = cycle_count or _battery_int(battery_data.get("CycleCount"))
     return health, cycle_count
