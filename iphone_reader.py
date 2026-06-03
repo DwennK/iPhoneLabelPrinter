@@ -211,22 +211,51 @@ def _nested_dict(value: object, key: str) -> dict:
     return {}
 
 
-def _battery_percent(value: object) -> str:
-    if not isinstance(value, int):
-        return ""
-    if 0 < value <= 100:
-        return f"{value}%"
-    return ""
-
-
 def _battery_int(value: object) -> str:
     if isinstance(value, int) and value >= 0:
         return str(value)
     return ""
 
 
+def _first_int(source: dict, *keys: str) -> int | None:
+    """Return the first key in ``source`` that holds an int, searching in order."""
+
+    for key in keys:
+        value = source.get(key)
+        if isinstance(value, int):
+            return value
+    return None
+
+
+def _health_percent(full_charge: int | None, design: int | None) -> str:
+    """Battery health = current full-charge capacity / original design capacity.
+
+    This mirrors the iPhone's own "Maximum Capacity" screen and 3uTools.
+    """
+
+    if not isinstance(full_charge, int) or not isinstance(design, int):
+        return ""
+    if full_charge <= 0 or design <= 0:
+        return ""
+    percent = round(full_charge / design * 100)
+    if 0 < percent <= 100:
+        return f"{percent}%"
+    return ""
+
+
+# Current full-charge capacity in mAh. Apple renamed this across iOS versions,
+# so we try the modern keys first and fall back to the legacy ones.
+_FULL_CHARGE_KEYS = ("AppleRawMaxCapacity", "NominalChargeCapacity", "FullChargeCapacity")
+_DESIGN_KEYS = ("DesignCapacity",)
+
+
 def get_battery_info(udid: str, timeout: float = 8.0) -> tuple[str, str]:
-    """Return battery health percentage and cycle count when diagnostics exposes them."""
+    """Return battery health percentage and cycle count when diagnostics exposes them.
+
+    iOS reports ``MaxCapacity`` normalised to 100, so it cannot be used as the
+    health figure. Health is instead derived from the raw full-charge capacity
+    relative to the design capacity.
+    """
 
     try:
         gas_result = run_command(
@@ -242,7 +271,10 @@ def get_battery_info(udid: str, timeout: float = 8.0) -> tuple[str, str]:
             payload = {}
         gas_gauge = _nested_dict(payload, "GasGauge")
 
-    health = _battery_percent(gas_gauge.get("FullChargeCapacity"))
+    health = _health_percent(
+        _first_int(gas_gauge, *_FULL_CHARGE_KEYS),
+        _first_int(gas_gauge, *_DESIGN_KEYS),
+    )
     cycle_count = _battery_int(gas_gauge.get("CycleCount"))
 
     if health and cycle_count:
@@ -264,8 +296,14 @@ def get_battery_info(udid: str, timeout: float = 8.0) -> tuple[str, str]:
     registry = _nested_dict(payload, "IORegistry")
     battery_data = _nested_dict(registry, "BatteryData")
 
-    health = health or _battery_percent(registry.get("MaxCapacity"))
-    health = health or _battery_percent(battery_data.get("MaxCapacity"))
+    full_charge = _first_int(registry, *_FULL_CHARGE_KEYS)
+    if full_charge is None:
+        full_charge = _first_int(battery_data, *_FULL_CHARGE_KEYS)
+    design = _first_int(registry, *_DESIGN_KEYS)
+    if design is None:
+        design = _first_int(battery_data, *_DESIGN_KEYS)
+
+    health = health or _health_percent(full_charge, design)
     cycle_count = cycle_count or _battery_int(registry.get("CycleCount"))
     cycle_count = cycle_count or _battery_int(battery_data.get("CycleCount"))
     return health, cycle_count
