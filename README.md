@@ -295,14 +295,14 @@ PySide6 GUI.
 Responsibilities:
 
 - Main window layout
-- Scan button flow
+- Scan button flow using a `QThread` worker
 - Manual edit fields
 - Printer selector
 - Label preview
 - Generate and print button handlers
 - User-facing error dialogs
 
-The GUI is deliberately synchronous for now. The subprocess calls are short and easier to reason about. If scans become slow on some devices, move scanning into a `QThread` or worker object.
+Scan and update checks run on worker threads so USB reads and network checks do not freeze the window.
 
 ### `iphone_reader.py`
 
@@ -527,6 +527,7 @@ On Windows, replace the `py_compile` invocation with:
 ```bat
 .venv\Scripts\activate
 python -m py_compile app.py iphone_reader.py label_generator.py model_mapping.py printer.py _printer_win32.py utils.py variant_resolver.py variant_data.py
+python -m unittest discover -s tests
 python app.py
 ```
 
