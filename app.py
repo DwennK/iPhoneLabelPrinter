@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from dataclasses import dataclass
 from pathlib import Path
 import sys
 import tempfile
@@ -148,6 +149,44 @@ class _UpdateDownloadWorker(QObject):
         self.finished.emit(path)
 
 
+@dataclass(frozen=True)
+class _ScanResult:
+    devices: list[ConnectedDevice]
+    selected_udid: str = ""
+    info: IPhoneInfo | None = None
+
+
+class _IPhoneScanWorker(QObject):
+    """Runs USB detection and iPhone reads off the UI thread."""
+
+    finished = Signal(object)  # _ScanResult
+    failed = Signal(object)  # Exception
+
+    def __init__(self, udid: str | None = None) -> None:
+        super().__init__()
+        self._udid = udid
+
+    def run(self) -> None:
+        try:
+            if self._udid:
+                info = read_iphone_info(self._udid)
+                self.finished.emit(_ScanResult([], selected_udid=self._udid, info=info))
+                return
+
+            devices = detect_devices()
+            if len(devices) == 1:
+                selected = devices[0]
+                info = read_iphone_info(selected.udid)
+                self.finished.emit(
+                    _ScanResult(devices, selected_udid=selected.udid, info=info)
+                )
+                return
+
+            self.finished.emit(_ScanResult(devices))
+        except Exception as exc:  # noqa: BLE001 — surfaced via failed signal
+            self.failed.emit(exc)
+
+
 class LabelPreview(QPdfView):
     """PDF-backed preview using the same renderer as printed labels."""
 
@@ -185,6 +224,8 @@ class MainWindow(QMainWindow):
         self.current_pdf_path: Path | None = None
         self.connected_devices: list[ConnectedDevice] = []
         self.printers: list[PrinterInfo] = []
+        self._scan_thread: QThread | None = None
+        self._scan_worker: QObject | None = None
         self._update_thread: QThread | None = None
         self._update_worker: QObject | None = None
         self._update_in_progress = False
@@ -453,67 +494,121 @@ class MainWindow(QMainWindow):
             QApplication.restoreOverrideCursor()
 
     def scan_iphone(self) -> None:
+        self.start_scan_worker()
+
+    def start_scan_worker(self, udid: str | None = None) -> None:
+        if self._scan_thread is not None:
+            return
+
         self.set_busy(True)
-        try:
+        if udid:
+            self.status_label.setText(f"Reading iPhone information from {udid}...")
+        else:
             self.status_label.setText("Scanning for connected iPhones...")
-            QApplication.processEvents()
-            devices = detect_devices()
-            self.connected_devices = devices
-            if not devices:
-                message = NO_DEVICE_MESSAGE
-                self.status_label.setText(message)
-                self.show_error("No iPhone Detected", message)
+
+        thread = QThread(self)
+        worker = _IPhoneScanWorker(udid)
+        worker.moveToThread(thread)
+        thread.started.connect(worker.run)
+        worker.finished.connect(self._on_scan_finished)
+        worker.failed.connect(self._on_scan_failed)
+        worker.finished.connect(thread.quit)
+        worker.failed.connect(thread.quit)
+        worker.finished.connect(worker.deleteLater)
+        worker.failed.connect(worker.deleteLater)
+        thread.finished.connect(self._clear_scan_thread)
+        self._scan_thread = thread
+        self._scan_worker = worker
+        thread.start()
+
+    def start_scan_worker_when_idle(self, udid: str) -> None:
+        if self._scan_thread is None:
+            self.start_scan_worker(udid)
+            return
+        QTimer.singleShot(20, lambda: self.start_scan_worker_when_idle(udid))
+
+    def _clear_scan_thread(self) -> None:
+        if self._scan_thread is not None:
+            self._scan_thread.deleteLater()
+        self._scan_thread = None
+        self._scan_worker = None
+
+    def _on_scan_finished(self, result: object) -> None:
+        if not isinstance(result, _ScanResult):
+            self.set_busy(False)
+            self.show_error("Scan Failed", "Unexpected scan result.")
+            return
+
+        self.connected_devices = result.devices
+        if not result.devices and result.info is None:
+            self.set_busy(False)
+            message = NO_DEVICE_MESSAGE
+            self.status_label.setText(message)
+            self.show_error("No iPhone Detected", message)
+            return
+
+        if len(result.devices) > 1 and result.info is None:
+            self.set_busy(False)
+            labels = [device.display_name for device in result.devices]
+            choice, ok = QInputDialog.getItem(
+                self,
+                "Select iPhone",
+                "Multiple iPhones were detected:",
+                labels,
+                0,
+                False,
+            )
+            if not ok:
+                self.status_label.setText("Scan cancelled.")
                 return
+            selected = result.devices[labels.index(choice)]
+            self.start_scan_worker_when_idle(selected.udid)
+            return
 
-            selected = devices[0]
-            if len(devices) > 1:
-                labels = [device.display_name for device in devices]
-                choice, ok = QInputDialog.getItem(
-                    self,
-                    "Select iPhone",
-                    "Multiple iPhones were detected:",
-                    labels,
-                    0,
-                    False,
-                )
-                if not ok:
-                    self.status_label.setText("Scan cancelled.")
-                    return
-                selected = devices[labels.index(choice)]
+        if result.info is None:
+            self.set_busy(False)
+            self.status_label.setText("Scan did not return iPhone information.")
+            self.show_error("Scan Failed", "Scan did not return iPhone information.")
+            return
 
-            self.status_label.setText(f"Reading iPhone information from {selected.udid}...")
-            QApplication.processEvents()
-            info = read_iphone_info(selected.udid)
-            self.populate_form(info)
+        info = result.info
+        self.populate_form(info)
 
-            notes = []
-            if info.model_is_unknown:
-                notes.append("Unknown ProductType; verify the model manually.")
-            if info.color_source_note:
-                notes.append(info.color_source_note)
-            if info.variant_source_note and info.variant_source_note != info.color_source_note:
-                notes.append(info.variant_source_note)
-            if not info.imei:
-                notes.append("IMEI was not available; enter it manually before printing.")
+        notes = []
+        if info.model_is_unknown:
+            notes.append("Unknown ProductType; verify the model manually.")
+        if info.color_source_note:
+            notes.append(info.color_source_note)
+        if info.variant_source_note and info.variant_source_note != info.color_source_note:
+            notes.append(info.variant_source_note)
+        if not info.imei:
+            notes.append("IMEI was not available; enter it manually before printing.")
 
-            status = f"Connected: {info.device_name or selected.udid}"
-            if notes:
-                status += " " + " ".join(notes)
-            self.status_label.setText(status)
-        except CommandNotFoundError as exc:
+        status = f"Connected: {info.device_name or result.selected_udid or info.udid}"
+        if notes:
+            status += " " + " ".join(notes)
+        self.status_label.setText(status)
+        self.set_busy(False)
+
+    def _on_scan_failed(self, exc: object) -> None:
+        self.set_busy(False)
+        if isinstance(exc, CommandNotFoundError):
             self.status_label.setText("libimobiledevice command is missing.")
             self.show_error(
                 "Missing Dependency",
                 f"{exc}\n\n{libimobiledevice_install_hint()}",
             )
-        except IPhoneReaderError as exc:
+            return
+        if isinstance(exc, IPhoneReaderError):
             self.status_label.setText(str(exc))
             self.show_error(exc.title, str(exc))
-        except AppError as exc:
+            return
+        if isinstance(exc, AppError):
             self.status_label.setText(str(exc))
             self.show_error("Scan Failed", str(exc))
-        finally:
-            self.set_busy(False)
+            return
+        self.status_label.setText(str(exc))
+        self.show_error("Scan Failed", str(exc))
 
     def populate_form(self, info: IPhoneInfo) -> None:
         self.model_edit.setText(info.marketing_model)

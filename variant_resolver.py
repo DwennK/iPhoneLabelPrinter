@@ -223,11 +223,13 @@ def resolve_variant(
 ) -> VariantInfo:
     """Resolve the best available color/storage metadata for a device."""
 
-    for lookup in (
-        lookup_local_model_variant(model_number),
-        lookup_reincubate_variant(model_number),
-        lookup_color_code_variant(product_type, device_color, enclosure_color),
-    ):
+    lookups = (
+        lambda: lookup_local_model_variant(model_number),
+        lambda: lookup_reincubate_variant(model_number),
+        lambda: lookup_color_code_variant(product_type, device_color, enclosure_color),
+    )
+    for lookup_variant in lookups:
+        lookup = lookup_variant()
         if lookup.found:
             return lookup
     return VariantInfo()

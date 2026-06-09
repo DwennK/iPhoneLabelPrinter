@@ -203,6 +203,15 @@ def get_disk_capacity_value(udid: str, timeout: float = 4.0) -> str:
     return ""
 
 
+def get_cached_or_device_value(all_info: dict[str, str], udid: str, key: str) -> str:
+    """Use the broad ideviceinfo payload before falling back to a key-specific call."""
+
+    cached = all_info.get(key, "").strip()
+    if cached:
+        return cached
+    return get_value(udid, key)
+
+
 def _nested_dict(value: object, key: str) -> dict:
     if isinstance(value, dict):
         nested = value.get(key)
@@ -324,14 +333,8 @@ def read_iphone_info(udid: str) -> IPhoneInfo:
 
     all_info = get_all_info(udid)
 
-    product_type = first_non_empty(
-        get_value(udid, "ProductType"),
-        all_info.get("ProductType"),
-    )
-    model_number = first_non_empty(
-        get_value(udid, "ModelNumber"),
-        all_info.get("ModelNumber"),
-    )
+    product_type = get_cached_or_device_value(all_info, udid, "ProductType")
+    model_number = get_cached_or_device_value(all_info, udid, "ModelNumber")
     marketing_name = marketing_name_for_product_type(product_type) if product_type else None
     model_is_unknown = not bool(marketing_name)
 
@@ -348,15 +351,12 @@ def read_iphone_info(udid: str) -> IPhoneInfo:
 
     imei = ""
     for key in IMEI_KEYS:
-        imei = normalize_imei(first_non_empty(get_value(udid, key), all_info.get(key)))
+        imei = normalize_imei(get_cached_or_device_value(all_info, udid, key))
         if imei:
             break
 
-    raw_device_color = first_non_empty(get_value(udid, "DeviceColor"), all_info.get("DeviceColor"))
-    raw_enclosure_color = first_non_empty(
-        get_value(udid, "DeviceEnclosureColor"),
-        all_info.get("DeviceEnclosureColor"),
-    )
+    raw_device_color = get_cached_or_device_value(all_info, udid, "DeviceColor")
+    raw_enclosure_color = get_cached_or_device_value(all_info, udid, "DeviceEnclosureColor")
     variant = resolve_variant(
         product_type=product_type,
         model_number=model_number,
@@ -368,7 +368,7 @@ def read_iphone_info(udid: str) -> IPhoneInfo:
     color_key_used = ""
     if not color_value:
         for key in COLOR_KEYS:
-            raw_color_value = first_non_empty(get_value(udid, key), all_info.get(key))
+            raw_color_value = get_cached_or_device_value(all_info, udid, key)
             color_value = normalize_color_value(raw_color_value)
             if color_value:
                 color_key_used = key
@@ -384,22 +384,10 @@ def read_iphone_info(udid: str) -> IPhoneInfo:
         storage=storage or variant.storage,
         color=color_value,
         imei=imei,
-        serial_number=first_non_empty(
-            get_value(udid, "SerialNumber"),
-            all_info.get("SerialNumber"),
-        ),
-        device_name=first_non_empty(
-            get_value(udid, "DeviceName"),
-            all_info.get("DeviceName"),
-        ),
-        ios_version=first_non_empty(
-            get_value(udid, "ProductVersion"),
-            all_info.get("ProductVersion"),
-        ),
-        build_version=first_non_empty(
-            get_value(udid, "BuildVersion"),
-            all_info.get("BuildVersion"),
-        ),
+        serial_number=get_cached_or_device_value(all_info, udid, "SerialNumber"),
+        device_name=get_cached_or_device_value(all_info, udid, "DeviceName"),
+        ios_version=get_cached_or_device_value(all_info, udid, "ProductVersion"),
+        build_version=get_cached_or_device_value(all_info, udid, "BuildVersion"),
         battery_health=battery_health,
         battery_cycle_count=battery_cycle_count,
         model_is_unknown=model_is_unknown,
