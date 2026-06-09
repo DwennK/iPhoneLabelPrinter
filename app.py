@@ -546,7 +546,14 @@ class MainWindow(QMainWindow):
             battery_health=self.battery_health_edit.text().strip(),
         )
 
+    def invalidate_generated_label(self) -> None:
+        if self.current_pdf_path is None:
+            return
+        self.current_pdf_path = None
+        self.generated_path_label.setText("Label changed; generate it again before printing.")
+
     def update_preview_from_form(self) -> None:
+        self.invalidate_generated_label()
         label_width_mm, label_height_mm = self.effective_label_size_mm()
         self.preview.set_info(self.form_info(), label_width_mm, label_height_mm)
 
