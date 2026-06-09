@@ -115,7 +115,9 @@ release, lance le workflow à la main depuis cet onglet (*Run workflow*).
 - Resolve color and storage from a local Apple order-number variant database.
 - Allow manual correction for fields that Apple/libimobiledevice does not expose reliably.
 - Generate thermal PDF labels using the configured size and orientation.
-- Print labels through CUPS with a matching custom media size.
+- Print labels through CUPS or Windows/SumatraPDF using the configured label size.
+- Print a calibration label for driver and paper-size checks.
+- Clean up old generated label PDFs using a configurable retention period.
 - Show operational errors in the GUI instead of only printing them in Terminal.
 
 ## Requirements
@@ -241,6 +243,12 @@ Linux uses the CUPS backend, same as macOS.
 9. Click **Print Label**.
 
 Label dimensions and orientation can be changed in the **Settings** tab. The print job uses the effective label size as a CUPS custom media size, for example `Custom.62x40mm`, so the macOS paper-size dialog is not required during normal use.
+
+The **Settings** tab also includes:
+
+- **Print Test Label** for thermal printer calibration.
+- **Keep labels** to delete old PDFs from `generated_labels/` automatically.
+- **Clean Now** to apply the cleanup immediately.
 
 Generated PDFs are saved in:
 
@@ -535,6 +543,7 @@ Then verify:
 - **Generate Label** creates a PDF in `generated_labels/`.
 - The generated PDF opens in Preview.
 - **Print Label** opens the macOS print dialog for the generated label.
+- **Print Test Label** produces a bordered calibration label.
 
 Useful direct checks:
 

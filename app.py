@@ -25,6 +25,7 @@ from PySide6.QtWidgets import (
     QProgressDialog,
     QPushButton,
     QStatusBar,
+    QSpinBox,
     QTabWidget,
     QVBoxLayout,
     QWidget,
@@ -39,7 +40,14 @@ from iphone_reader import (
     libimobiledevice_install_hint,
     read_iphone_info,
 )
-from label_generator import LABEL_HEIGHT_MM, LABEL_WIDTH_MM, generate_label_pdf, write_label_pdf
+from label_generator import (
+    LABEL_HEIGHT_MM,
+    LABEL_WIDTH_MM,
+    cleanup_generated_label_pdfs,
+    generate_calibration_label_pdf,
+    generate_label_pdf,
+    write_label_pdf,
+)
 from printer import PrinterInfo, list_printers, submit_label_print_job
 from utils import AppError, CommandNotFoundError, IPhoneInfo
 from variant_resolver import color_options_for_product_type
@@ -54,14 +62,17 @@ APPLICATION_NAME = "iPhoneLabelPrinter"
 SETTINGS_LABEL_WIDTH_KEY = "label/width_mm"
 SETTINGS_LABEL_HEIGHT_KEY = "label/height_mm"
 SETTINGS_LABEL_ORIENTATION_KEY = "label/orientation"
+SETTINGS_LABEL_RETENTION_DAYS_KEY = "generated_labels/retention_days"
 DEFAULT_LABEL_WIDTH_MM = float(LABEL_WIDTH_MM)
 DEFAULT_LABEL_HEIGHT_MM = float(LABEL_HEIGHT_MM)
 DEFAULT_LABEL_ORIENTATION = (
     "landscape" if DEFAULT_LABEL_WIDTH_MM >= DEFAULT_LABEL_HEIGHT_MM else "portrait"
 )
+DEFAULT_LABEL_RETENTION_DAYS = 30
 MIN_LABEL_WIDTH_MM = 30.0
 MIN_LABEL_HEIGHT_MM = 25.0
 MAX_LABEL_SIZE_MM = 200.0
+MAX_LABEL_RETENTION_DAYS = 365
 LABEL_ORIENTATIONS = {
     "portrait": "Portrait",
     "landscape": "Landscape",
@@ -239,6 +250,12 @@ class MainWindow(QMainWindow):
             DEFAULT_LABEL_HEIGHT_MM,
         )
         self.label_orientation = self.load_label_orientation()
+        self.label_retention_days = self.load_setting_int(
+            SETTINGS_LABEL_RETENTION_DAYS_KEY,
+            DEFAULT_LABEL_RETENTION_DAYS,
+            minimum=0,
+            maximum=MAX_LABEL_RETENTION_DAYS,
+        )
 
         self.status_label = QLabel("No iPhone scanned.")
         self.status_label.setWordWrap(True)
@@ -310,10 +327,20 @@ class MainWindow(QMainWindow):
         self.save_settings_button.clicked.connect(self.save_settings)
         self.reset_label_size_button = QPushButton("Reset Label Size")
         self.reset_label_size_button.clicked.connect(self.reset_label_size_settings)
+        self.label_retention_spin = QSpinBox()
+        self.label_retention_spin.setRange(0, MAX_LABEL_RETENTION_DAYS)
+        self.label_retention_spin.setSuffix(" days")
+        self.label_retention_spin.setSpecialValueText("Disabled")
+        self.label_retention_spin.setValue(self.label_retention_days)
+        self.print_test_label_button = QPushButton("Print Test Label")
+        self.print_test_label_button.clicked.connect(self.print_calibration_label)
+        self.clean_labels_button = QPushButton("Clean Now")
+        self.clean_labels_button.clicked.connect(self.cleanup_generated_labels)
 
         self._build_layout()
         self.setStatusBar(QStatusBar())
         self.refresh_printers(show_success=False)
+        self.cleanup_generated_labels(show_success=False)
         self.update_preview_from_form()
 
         # Check for updates shortly after the window is shown so startup stays
@@ -401,8 +428,16 @@ class MainWindow(QMainWindow):
         label_size_layout.addRow("Orientation", self.label_orientation_combo)
         layout.addWidget(label_size_box)
 
+        generated_box = QGroupBox("Generated PDFs")
+        generated_layout = QFormLayout(generated_box)
+        generated_layout.setFieldGrowthPolicy(QFormLayout.FieldGrowthPolicy.ExpandingFieldsGrow)
+        generated_layout.addRow("Keep labels", self.label_retention_spin)
+        layout.addWidget(generated_box)
+
         buttons_layout = QHBoxLayout()
         buttons_layout.addStretch(1)
+        buttons_layout.addWidget(self.clean_labels_button)
+        buttons_layout.addWidget(self.print_test_label_button)
         buttons_layout.addWidget(self.reset_label_size_button)
         buttons_layout.addWidget(self.save_settings_button)
         layout.addLayout(buttons_layout)
@@ -424,6 +459,21 @@ class MainWindow(QMainWindow):
             return max(MIN_LABEL_HEIGHT_MM, min(parsed, MAX_LABEL_SIZE_MM))
         return parsed
 
+    def load_setting_int(
+        self,
+        key: str,
+        default: int,
+        *,
+        minimum: int,
+        maximum: int,
+    ) -> int:
+        value = self.settings.value(key, default)
+        try:
+            parsed = int(value)
+        except (TypeError, ValueError):
+            return default
+        return max(minimum, min(parsed, maximum))
+
     def load_label_orientation(self) -> str:
         value = self.settings.value(SETTINGS_LABEL_ORIENTATION_KEY, DEFAULT_LABEL_ORIENTATION)
         orientation = str(value)
@@ -444,13 +494,16 @@ class MainWindow(QMainWindow):
         self.label_orientation = (
             self.label_orientation_combo.currentData() or DEFAULT_LABEL_ORIENTATION
         )
+        self.label_retention_days = self.label_retention_spin.value()
         self.settings.setValue(SETTINGS_LABEL_WIDTH_KEY, self.label_width_mm)
         self.settings.setValue(SETTINGS_LABEL_HEIGHT_KEY, self.label_height_mm)
         self.settings.setValue(SETTINGS_LABEL_ORIENTATION_KEY, self.label_orientation)
+        self.settings.setValue(SETTINGS_LABEL_RETENTION_DAYS_KEY, self.label_retention_days)
         self.settings.sync()
         self.current_pdf_path = None
         self.generated_path_label.setText("No label generated yet.")
         self.update_preview_from_form()
+        self.cleanup_generated_labels(show_success=False)
         self.statusBar().showMessage("Settings saved.", 5000)
 
     def reset_label_size_settings(self) -> None:
@@ -488,6 +541,8 @@ class MainWindow(QMainWindow):
         self.generate_button.setEnabled(not busy)
         self.print_button.setEnabled(not busy)
         self.refresh_printers_button.setEnabled(not busy)
+        self.print_test_label_button.setEnabled(not busy)
+        self.clean_labels_button.setEnabled(not busy)
         if busy:
             QApplication.setOverrideCursor(Qt.CursorShape.WaitCursor)
         else:
@@ -721,6 +776,46 @@ class MainWindow(QMainWindow):
             self.statusBar().showMessage(f"Label generated: {self.current_pdf_path.name}", 7000)
         except Exception as exc:
             self.show_error("Label Generation Failed", str(exc))
+
+    def cleanup_generated_labels(self, show_success: bool = True) -> None:
+        self.label_retention_days = self.label_retention_spin.value()
+        deleted = cleanup_generated_label_pdfs(
+            GENERATED_LABELS_DIR,
+            retention_days=self.label_retention_days,
+        )
+        if show_success:
+            self.statusBar().showMessage(f"Deleted {len(deleted)} old label PDF(s).", 5000)
+
+    def print_calibration_label(self) -> None:
+        printer_name = self.printer_combo.currentData()
+        if not printer_name:
+            self.show_error(
+                "No Printer Selected",
+                "No printer is selected. Add or select a printer before printing.",
+            )
+            return
+
+        try:
+            label_width_mm, label_height_mm = self.effective_label_size_mm()
+            pdf_path = generate_calibration_label_pdf(
+                GENERATED_LABELS_DIR,
+                label_width_mm=label_width_mm,
+                label_height_mm=label_height_mm,
+            )
+            output = submit_label_print_job(
+                printer_name,
+                pdf_path,
+                label_width_mm,
+                label_height_mm,
+                self.label_orientation,
+            )
+            self.current_pdf_path = None
+            self.generated_path_label.setText(f"Generated test label: {pdf_path}")
+            self.statusBar().showMessage(output or "Test label submitted.", 7000)
+        except AppError as exc:
+            self.show_error("Print Failed", str(exc))
+        except Exception as exc:
+            self.show_error("Test Label Failed", str(exc))
 
     def print_label(self) -> None:
         printer_name = self.printer_combo.currentData()

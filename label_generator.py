@@ -19,6 +19,7 @@ LABEL_WIDTH_MM = 62
 LABEL_HEIGHT_MM = 40
 LABEL_MARGIN_MM = 3
 INCLUDE_BARCODE = False
+SECONDS_PER_DAY = 24 * 60 * 60
 
 
 def _draw_fit_text(
@@ -207,6 +208,67 @@ def write_label_pdf(
     return pdf_path
 
 
+def write_calibration_label_pdf(
+    pdf_path: str | Path,
+    label_width_mm: float = LABEL_WIDTH_MM,
+    label_height_mm: float = LABEL_HEIGHT_MM,
+    created_at: datetime | None = None,
+) -> Path:
+    """Write a printer calibration label with borders and alignment marks."""
+
+    pdf_path = Path(pdf_path)
+    pdf_path.parent.mkdir(parents=True, exist_ok=True)
+    created_at = created_at or datetime.now()
+
+    width = label_width_mm * mm
+    height = label_height_mm * mm
+    margin = LABEL_MARGIN_MM * mm
+    usable_width = width - (margin * 2)
+    usable_height = height - (margin * 2)
+    center_x = width / 2
+    center_y = height / 2
+
+    pdf = canvas.Canvas(str(pdf_path), pagesize=(width, height))
+    pdf.setTitle("iPhoneLabelPrinter calibration label")
+    pdf.setFillColorRGB(0, 0, 0)
+    pdf.setStrokeColorRGB(0, 0, 0)
+    pdf.setLineWidth(0.4)
+
+    pdf.rect(margin, margin, usable_width, usable_height, stroke=True, fill=False)
+    pdf.line(center_x, margin, center_x, height - margin)
+    pdf.line(margin, center_y, width - margin, center_y)
+
+    tick = 2.5 * mm
+    for x, y in (
+        (margin, margin),
+        (width - margin, margin),
+        (margin, height - margin),
+        (width - margin, height - margin),
+    ):
+        pdf.line(x - tick if x > center_x else x, y, x + tick if x < center_x else x, y)
+        pdf.line(x, y - tick if y > center_y else y, x, y + tick if y < center_y else y)
+
+    y = height - margin - 5 * mm
+    _draw_fit_text(pdf, "iPhoneLabelPrinter TEST", margin + 1 * mm, y, usable_width - 2 * mm, "Helvetica-Bold", 10)
+    y -= 5 * mm
+    size_line = f"{label_width_mm:g} x {label_height_mm:g} mm"
+    _draw_fit_text(pdf, size_line, margin + 1 * mm, y, usable_width - 2 * mm, "Helvetica", 8)
+    y = margin + 2 * mm
+    _draw_fit_text(
+        pdf,
+        created_at.strftime("%d/%m/%Y %H:%M"),
+        margin + 1 * mm,
+        y,
+        usable_width - 2 * mm,
+        "Helvetica",
+        6,
+    )
+
+    pdf.showPage()
+    pdf.save()
+    return pdf_path
+
+
 def generate_label_pdf(
     info: IPhoneInfo,
     output_dir: str | Path = "generated_labels",
@@ -230,3 +292,50 @@ def generate_label_pdf(
         label_height_mm=label_height_mm,
         created_at=created_at,
     )
+
+
+def generate_calibration_label_pdf(
+    output_dir: str | Path = "generated_labels",
+    label_width_mm: float = LABEL_WIDTH_MM,
+    label_height_mm: float = LABEL_HEIGHT_MM,
+) -> Path:
+    """Generate a calibration PDF and return its path."""
+
+    output_path = Path(output_dir)
+    output_path.mkdir(parents=True, exist_ok=True)
+    created_at = datetime.now()
+    timestamp = created_at.strftime("%Y%m%d_%H%M%S")
+    pdf_path = output_path / f"{timestamp}_calibration.pdf"
+    return write_calibration_label_pdf(
+        pdf_path,
+        label_width_mm=label_width_mm,
+        label_height_mm=label_height_mm,
+        created_at=created_at,
+    )
+
+
+def cleanup_generated_label_pdfs(
+    output_dir: str | Path = "generated_labels",
+    retention_days: int = 30,
+    now: datetime | None = None,
+) -> list[Path]:
+    """Delete generated PDFs older than ``retention_days`` and return deleted paths."""
+
+    if retention_days <= 0:
+        return []
+
+    output_path = Path(output_dir)
+    if not output_path.is_dir():
+        return []
+
+    cutoff = (now or datetime.now()).timestamp() - (retention_days * SECONDS_PER_DAY)
+    deleted: list[Path] = []
+    for pdf_path in output_path.glob("*.pdf"):
+        try:
+            if pdf_path.stat().st_mtime >= cutoff:
+                continue
+            pdf_path.unlink()
+        except OSError:
+            continue
+        deleted.append(pdf_path)
+    return deleted
