@@ -7,6 +7,7 @@ import tempfile
 import unittest
 
 from label_generator import (
+    build_label_qr_data,
     cleanup_generated_label_pdfs,
     write_calibration_label_pdf,
     write_label_pdf,
@@ -15,6 +16,25 @@ from utils import IPhoneInfo
 
 
 class LabelGeneratorTest(unittest.TestCase):
+    def test_build_label_qr_data_includes_structured_fields(self) -> None:
+        payload = build_label_qr_data(
+            IPhoneInfo(
+                marketing_model="iPhone 15",
+                technical_model="iPhone15,4",
+                storage="128 GB",
+                color="Blue",
+                imei="35 502642 9560655",
+                serial_number="ABC123",
+                ios_version="18.5",
+                battery_health="86% (412 cycles)",
+            )
+        )
+
+        self.assertIn("IMEI: 355026429560655", payload)
+        self.assertIn("SN: ABC123", payload)
+        self.assertIn("MODEL: iPhone 15", payload)
+        self.assertIn("BATTERY: 86% (412 cycles)", payload)
+
     def test_write_label_pdf_creates_pdf(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             path = Path(tmp) / "label.pdf"

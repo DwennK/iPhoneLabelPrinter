@@ -16,6 +16,7 @@ env/
 # Generated labels and local output
 generated_labels/*
 !generated_labels/.gitkeep
+label_history.csv
 dist/
 build/
 *.spec

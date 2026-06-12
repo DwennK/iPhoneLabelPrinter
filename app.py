@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from pathlib import Path
+import re
 import sys
 import tempfile
 
@@ -14,9 +15,11 @@ from PySide6.QtWidgets import (
     QApplication,
     QComboBox,
     QDoubleSpinBox,
+    QFileDialog,
     QFormLayout,
     QGridLayout,
     QGroupBox,
+    QHeaderView,
     QHBoxLayout,
     QLabel,
     QLineEdit,
@@ -27,11 +30,20 @@ from PySide6.QtWidgets import (
     QStatusBar,
     QSpinBox,
     QTabWidget,
+    QTableWidget,
+    QTableWidgetItem,
     QVBoxLayout,
     QWidget,
     QInputDialog,
 )
 
+from history import (
+    LabelHistoryEntry,
+    append_generated_entry,
+    export_history,
+    mark_label_printed,
+    read_history,
+)
 from iphone_reader import (
     ConnectedDevice,
     IPhoneReaderError,
@@ -49,7 +61,7 @@ from label_generator import (
     write_label_pdf,
 )
 from printer import PrinterInfo, list_printers, submit_label_print_job
-from utils import AppError, CommandNotFoundError, IPhoneInfo
+from utils import AppError, CommandNotFoundError, IPhoneInfo, normalize_imei, parse_int
 from variant_resolver import color_options_for_product_type
 from version import __version__
 import updater
@@ -57,6 +69,7 @@ import updater
 
 BASE_DIR = Path(__file__).resolve().parent
 GENERATED_LABELS_DIR = BASE_DIR / "generated_labels"
+HISTORY_PATH = BASE_DIR / "label_history.csv"
 ORGANIZATION_NAME = "iPhoneLabelPrinter"
 APPLICATION_NAME = "iPhoneLabelPrinter"
 SETTINGS_LABEL_WIDTH_KEY = "label/width_mm"
@@ -77,6 +90,18 @@ LABEL_ORIENTATIONS = {
     "portrait": "Portrait",
     "landscape": "Landscape",
 }
+HISTORY_COLUMNS = [
+    ("created_at", "Generated"),
+    ("printed_at", "Printed"),
+    ("marketing_model", "Model"),
+    ("storage", "Storage"),
+    ("color", "Color"),
+    ("imei", "IMEI"),
+    ("serial_number", "Serial"),
+    ("battery_health", "Battery"),
+    ("printer_name", "Printer"),
+    ("pdf_path", "PDF"),
+]
 
 COLOR_CHOICES = [
     "",
@@ -259,6 +284,8 @@ class MainWindow(QMainWindow):
 
         self.status_label = QLabel("No iPhone scanned.")
         self.status_label.setWordWrap(True)
+        self.alerts_label = QLabel("No alerts.")
+        self.alerts_label.setWordWrap(True)
         self.scan_button = QPushButton("Scan iPhone")
         self.scan_button.clicked.connect(self.scan_iphone)
 
@@ -303,6 +330,24 @@ class MainWindow(QMainWindow):
         self.clear_button = QPushButton("Clear")
         self.clear_button.clicked.connect(self.clear_form)
 
+        self.history_search_edit = QLineEdit()
+        self.history_search_edit.setPlaceholderText("Search model, IMEI, serial, color...")
+        self.history_search_edit.textChanged.connect(self.refresh_history_table)
+        self.history_table = QTableWidget()
+        self.history_table.setColumnCount(len(HISTORY_COLUMNS))
+        self.history_table.setHorizontalHeaderLabels([label for _, label in HISTORY_COLUMNS])
+        self.history_table.setSelectionBehavior(QTableWidget.SelectionBehavior.SelectRows)
+        self.history_table.setSelectionMode(QTableWidget.SelectionMode.SingleSelection)
+        self.history_table.setEditTriggers(QTableWidget.EditTrigger.NoEditTriggers)
+        self.history_table.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.ResizeToContents)
+        self.history_table.horizontalHeader().setStretchLastSection(True)
+        self.history_refresh_button = QPushButton("Refresh")
+        self.history_refresh_button.clicked.connect(self.refresh_history_table)
+        self.history_reprint_button = QPushButton("Reprint Selected")
+        self.history_reprint_button.clicked.connect(self.reprint_history_label)
+        self.history_export_button = QPushButton("Export CSV")
+        self.history_export_button.clicked.connect(self.export_history_csv)
+
         self.label_width_spin = QDoubleSpinBox()
         self.label_width_spin.setRange(MIN_LABEL_WIDTH_MM, MAX_LABEL_SIZE_MM)
         self.label_width_spin.setDecimals(1)
@@ -342,6 +387,7 @@ class MainWindow(QMainWindow):
         self.refresh_printers(show_success=False)
         self.cleanup_generated_labels(show_success=False)
         self.update_preview_from_form()
+        self.refresh_history_table()
 
         # Check for updates shortly after the window is shown so startup stays
         # responsive. Fully non-blocking and fail-open (see updater module).
@@ -354,6 +400,7 @@ class MainWindow(QMainWindow):
 
         tabs = QTabWidget()
         tabs.addTab(self.build_label_tab(), "Label")
+        tabs.addTab(self.build_history_tab(), "History")
         tabs.addTab(self.build_settings_tab(), "Settings")
         root_layout.addWidget(tabs)
 
@@ -370,6 +417,11 @@ class MainWindow(QMainWindow):
         status_layout.addWidget(self.status_label, 1)
         status_layout.addWidget(self.scan_button)
         main_layout.addWidget(status_box)
+
+        alerts_box = QGroupBox("Checks")
+        alerts_layout = QVBoxLayout(alerts_box)
+        alerts_layout.addWidget(self.alerts_label)
+        main_layout.addWidget(alerts_box)
 
         content_layout = QGridLayout()
         content_layout.setColumnStretch(0, 1)
@@ -412,6 +464,22 @@ class MainWindow(QMainWindow):
         buttons_layout.addWidget(self.print_button)
         main_layout.addLayout(buttons_layout)
 
+        return tab
+
+    def build_history_tab(self) -> QWidget:
+        tab = QWidget()
+        layout = QVBoxLayout(tab)
+        layout.setContentsMargins(6, 12, 6, 6)
+        layout.setSpacing(12)
+
+        toolbar = QHBoxLayout()
+        toolbar.addWidget(self.history_search_edit, 1)
+        toolbar.addWidget(self.history_refresh_button)
+        toolbar.addWidget(self.history_reprint_button)
+        toolbar.addWidget(self.history_export_button)
+        layout.addLayout(toolbar)
+
+        layout.addWidget(self.history_table, 1)
         return tab
 
     def build_settings_tab(self) -> QWidget:
@@ -520,6 +588,54 @@ class MainWindow(QMainWindow):
     def show_info(self, title: str, message: str) -> None:
         self.statusBar().showMessage(message, 7000)
         QMessageBox.information(self, title, message)
+
+    def alert_messages_for_info(self, info: IPhoneInfo) -> list[str]:
+        has_any_value = any(
+            [
+                info.marketing_model,
+                info.technical_model,
+                info.storage,
+                info.color,
+                info.imei,
+                info.serial_number,
+                info.battery_health,
+            ]
+        )
+        if not has_any_value:
+            return []
+
+        alerts: list[str] = []
+        if not info.marketing_model or info.marketing_model.lower() == "unknown model":
+            alerts.append("Model must be verified manually.")
+        if not info.storage:
+            alerts.append("Storage is missing.")
+        if not info.color:
+            alerts.append("Color is missing.")
+
+        imei = normalize_imei(info.imei)
+        if not imei:
+            alerts.append("IMEI is missing.")
+        elif len(imei) != 15:
+            alerts.append("IMEI should contain 15 digits.")
+
+        battery_percent = parse_int(info.battery_health)
+        if battery_percent is not None and battery_percent < 80:
+            alerts.append(f"Battery health is low ({battery_percent}%).")
+
+        cycle_match = re.search(r"(\d+)\s*cycles?", info.battery_health, re.IGNORECASE)
+        if cycle_match and int(cycle_match.group(1)) > 500:
+            alerts.append(f"Battery cycle count is high ({cycle_match.group(1)} cycles).")
+
+        return alerts
+
+    def update_alerts_from_form(self) -> None:
+        alerts = self.alert_messages_for_info(self.form_info())
+        if not alerts:
+            self.alerts_label.setText("No alerts.")
+            self.alerts_label.setStyleSheet("color: #1f7a3f;")
+            return
+        self.alerts_label.setText("\n".join(f"- {message}" for message in alerts))
+        self.alerts_label.setStyleSheet("color: #a15c00; font-weight: 600;")
 
     def set_color_choices(self, product_type: str = "", selected_color: str = "") -> None:
         current = selected_color.strip() or self.color_combo.currentText().strip()
@@ -706,6 +822,7 @@ class MainWindow(QMainWindow):
         self.invalidate_generated_label()
         label_width_mm, label_height_mm = self.effective_label_size_mm()
         self.preview.set_info(self.form_info(), label_width_mm, label_height_mm)
+        self.update_alerts_from_form()
 
     def refresh_printers(self, show_success: bool = True) -> None:
         try:
@@ -739,6 +856,128 @@ class MainWindow(QMainWindow):
         self.printer_combo.setCurrentIndex(default_index)
         if show_success:
             self.statusBar().showMessage("Printer list refreshed.", 4000)
+
+    def history_key(self, entry: LabelHistoryEntry) -> str:
+        return f"{entry.created_at}\0{entry.pdf_path}"
+
+    def refresh_history_table(self, *_: object) -> None:
+        try:
+            entries = read_history(HISTORY_PATH)
+        except OSError as exc:
+            self.show_error("History Error", f"Could not read label history:\n{exc}")
+            return
+
+        query = self.history_search_edit.text().strip().lower()
+        if query:
+            entries = [
+                entry
+                for entry in entries
+                if query
+                in " ".join(
+                    [
+                        entry.created_at,
+                        entry.printed_at,
+                        entry.marketing_model,
+                        entry.technical_model,
+                        entry.storage,
+                        entry.color,
+                        entry.imei,
+                        entry.serial_number,
+                        entry.device_name,
+                        entry.battery_health,
+                        entry.printer_name,
+                        entry.pdf_path,
+                    ]
+                ).lower()
+            ]
+
+        entries = list(reversed(entries))
+        self.history_table.setRowCount(len(entries))
+        for row, entry in enumerate(entries):
+            for column, (field, _label) in enumerate(HISTORY_COLUMNS):
+                item = QTableWidgetItem(getattr(entry, field))
+                item.setData(Qt.ItemDataRole.UserRole, self.history_key(entry))
+                self.history_table.setItem(row, column, item)
+
+    def selected_history_entry(self) -> LabelHistoryEntry | None:
+        row = self.history_table.currentRow()
+        if row < 0:
+            return None
+        first_item = self.history_table.item(row, 0)
+        if first_item is None:
+            return None
+        selected_key = first_item.data(Qt.ItemDataRole.UserRole)
+        for entry in read_history(HISTORY_PATH):
+            if self.history_key(entry) == selected_key:
+                return entry
+        return None
+
+    def export_history_csv(self) -> None:
+        destination, _selected_filter = QFileDialog.getSaveFileName(
+            self,
+            "Export Label History",
+            str(BASE_DIR / "label_history_export.csv"),
+            "CSV files (*.csv)",
+        )
+        if not destination:
+            return
+        try:
+            export_path = export_history(HISTORY_PATH, destination)
+        except OSError as exc:
+            self.show_error("Export Failed", str(exc))
+            return
+        self.statusBar().showMessage(f"History exported: {export_path}", 7000)
+
+    def reprint_history_label(self) -> None:
+        entry = self.selected_history_entry()
+        if entry is None:
+            self.show_error("No History Row Selected", "Select a history row to reprint.")
+            return
+
+        pdf_path = Path(entry.pdf_path)
+        if not pdf_path.exists():
+            self.show_error("PDF Not Found", f"The label PDF no longer exists:\n{pdf_path}")
+            return
+
+        printer_name = self.printer_combo.currentData()
+        if not printer_name:
+            self.show_error(
+                "No Printer Selected",
+                "No printer is selected. Add or select a printer before reprinting.",
+            )
+            return
+
+        try:
+            label_width_mm = float(entry.label_width_mm or self.effective_label_size_mm()[0])
+            label_height_mm = float(entry.label_height_mm or self.effective_label_size_mm()[1])
+        except ValueError:
+            label_width_mm, label_height_mm = self.effective_label_size_mm()
+        orientation = (
+            entry.label_orientation
+            if entry.label_orientation in LABEL_ORIENTATIONS
+            else self.label_orientation
+        )
+
+        try:
+            output = submit_label_print_job(
+                printer_name,
+                pdf_path,
+                label_width_mm,
+                label_height_mm,
+                orientation,
+            )
+            try:
+                mark_label_printed(HISTORY_PATH, pdf_path, printer_name)
+                self.refresh_history_table()
+            except OSError as exc:
+                self.show_error(
+                    "History Failed",
+                    f"Reprint job was submitted, but history was not updated:\n{exc}",
+                )
+                return
+            self.statusBar().showMessage(output or "History label reprinted.", 7000)
+        except AppError as exc:
+            self.show_error("Reprint Failed", str(exc))
 
     def validate_label_fields(self, require_imei: bool = False) -> bool:
         info = self.form_info()
@@ -776,6 +1015,20 @@ class MainWindow(QMainWindow):
             self.statusBar().showMessage(f"Label generated: {self.current_pdf_path.name}", 7000)
         except Exception as exc:
             self.show_error("Label Generation Failed", str(exc))
+            return
+
+        try:
+            append_generated_entry(
+                HISTORY_PATH,
+                info,
+                self.current_pdf_path,
+                label_width_mm=label_width_mm,
+                label_height_mm=label_height_mm,
+                label_orientation=self.label_orientation,
+            )
+            self.refresh_history_table()
+        except OSError as exc:
+            self.show_error("History Failed", f"Label generated, but history was not saved:\n{exc}")
 
     def cleanup_generated_labels(self, show_success: bool = True) -> None:
         self.label_retention_days = self.label_retention_spin.value()
@@ -846,6 +1099,16 @@ class MainWindow(QMainWindow):
             message = "Print job submitted."
             if output:
                 message = output
+            if self.current_pdf_path is not None:
+                try:
+                    mark_label_printed(HISTORY_PATH, self.current_pdf_path, printer_name)
+                    self.refresh_history_table()
+                except OSError as exc:
+                    self.show_error(
+                        "History Failed",
+                        f"Print job was submitted, but history was not updated:\n{exc}",
+                    )
+                    return
             self.statusBar().showMessage(message, 7000)
         except AppError as exc:
             self.show_error("Print Failed", str(exc))

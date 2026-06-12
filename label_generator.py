@@ -22,6 +22,26 @@ INCLUDE_BARCODE = False
 SECONDS_PER_DAY = 24 * 60 * 60
 
 
+def build_label_qr_data(info: IPhoneInfo) -> str:
+    """Return a compact, scanner-friendly payload for the label QR code."""
+
+    imei = normalize_imei(info.imei)
+    fields = [
+        ("IMEI", imei),
+        ("SN", info.serial_number.strip()),
+        ("MODEL", info.marketing_model.strip()),
+        ("TECH", info.technical_model.strip()),
+        ("STORAGE", info.storage.strip()),
+        ("COLOR", info.color.strip()),
+        ("BATTERY", info.battery_health.strip()),
+        ("IOS", info.ios_version.strip()),
+    ]
+    lines = [f"{key}: {value}" for key, value in fields if value]
+    if lines:
+        return "\n".join(lines)
+    return "Unknown iPhone"
+
+
 def _draw_fit_text(
     pdf: canvas.Canvas,
     text: str,
@@ -104,7 +124,7 @@ def write_label_pdf(
     usable_width = width - (margin * 2)
 
     imei = normalize_imei(info.imei)
-    qr_data = imei or info.serial_number or info.marketing_model or "Unknown iPhone"
+    qr_data = build_label_qr_data(info)
     qr_path = _make_qr_png(qr_data)
     barcode_path = _make_barcode_png(imei) if INCLUDE_BARCODE and imei else None
 
