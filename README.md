@@ -2,7 +2,7 @@
 
 Local desktop app for a phone repair shop. Runs on **macOS and Windows**.
 
-The app detects an iPhone connected by USB, reads device metadata through `libimobiledevice`, lets staff confirm or edit missing fields, generates a thermal PDF label, and submits it to the selected printer with the configured label size.
+The app detects an iPhone or iPad connected by USB, reads device metadata through `libimobiledevice`, lets staff confirm or edit missing fields, generates a thermal PDF label, and submits it to the selected printer with the configured label size.
 
 This is an internal shop tool. It is not designed for App Store distribution.
 
@@ -17,13 +17,13 @@ This is an internal shop tool. It is not designed for App Store distribution.
 ### En une phrase
 
 Sur Windows, l'app est **un seul fichier `.exe`** qui contient déjà tout ce
-qu'il faut (lecture iPhone + impression). L'utilisateur n'installe **ni
+qu'il faut (lecture iPhone/iPad + impression). L'utilisateur n'installe **ni
 Python, ni libimobiledevice, ni rien d'autre**. Et l'app **se met à jour
 toute seule** quand tu publies une nouvelle version sur GitHub.
 
 ### Comment ça marche (les 3 briques)
 
-1. **Lecture de l'iPhone** : l'app utilise les outils `libimobiledevice`
+1. **Lecture de l'iPhone/iPad** : l'app utilise les outils `libimobiledevice`
    (`idevice_id.exe`, `ideviceinfo.exe`, `idevicediagnostics.exe`). Sur macOS
    ils viennent de Homebrew ; sur Windows ils n'existent pas officiellement,
    donc **je les ai mis directement dans le projet** (`assets\bin\win32\`).
@@ -109,8 +109,8 @@ release, lance le workflow à la main depuis cet onglet (*Run workflow*).
 
 ## Current Capabilities
 
-- Detect one or more USB-connected iPhones.
-- Read model, technical ProductType, storage, color, IMEI, serial number, device name, battery health, and battery cycle count.
+- Detect one or more USB-connected iPhones or iPads.
+- Read model, technical ProductType, storage, color, IMEI when available, serial number, device name, battery health, and battery cycle count.
 - Resolve marketing model names from a local `ProductType` mapping.
 - Resolve color and storage from a local Apple order-number variant database.
 - Allow manual correction for fields that Apple/libimobiledevice does not expose reliably.
@@ -126,12 +126,12 @@ Shared:
 
 - Python 3.12
 - A USB data cable
-- A trusted/unlocked iPhone
+- A trusted/unlocked iPhone or iPad
 - A printer installed in the operating system
 
 Per-platform native dependencies:
 
-| Platform | iPhone reader | Printing |
+| Platform | Device reader | Printing |
 | --- | --- | --- |
 | macOS   | Homebrew `libimobiledevice` | CUPS (built-in) |
 | Windows | libimobiledevice-win32 (`idevice_id.exe`, `ideviceinfo.exe`, `idevicediagnostics.exe`) | SumatraPDF (silent PDF printer) + pywin32 |
@@ -224,17 +224,17 @@ Linux uses the CUPS backend, same as macOS.
 
 ## Daily Usage
 
-1. Connect the iPhone by USB.
-2. Unlock the iPhone.
+1. Connect the iPhone or iPad by USB.
+2. Unlock the device.
 3. Tap **Trust This Mac** if prompted.
 4. Open the app.
-5. Click **Scan iPhone**.
+5. Click **Scan Device**.
 6. Confirm or edit:
    - Model
    - Technical model
    - Storage
    - Color
-   - IMEI
+   - IMEI, when available
    - Serial number
    - Device name
    - Battery health
@@ -335,7 +335,7 @@ idevicediagnostics -u UDID ioregentry AppleSmartBattery
 
 ### `model_mapping.py`
 
-Maps Apple `ProductType` identifiers to marketing names.
+Maps Apple `ProductType` identifiers to marketing names. It first uses the generated `device_catalog.py`, then local fallback overrides, then a short AppleDB online fallback for devices released after the bundled catalog.
 
 Example:
 
@@ -343,7 +343,11 @@ Example:
 "iPhone18,3": "iPhone 17"
 ```
 
-If a new iPhone appears and the app shows **Unknown model**, add the new `ProductType` here.
+Refresh the bundled iPhone/iPad catalog with:
+
+```bash
+python tools/update_device_catalog.py
+```
 
 ### `variant_resolver.py`
 
@@ -354,13 +358,14 @@ Resolution order:
 1. Local `ModelNumber` lookup from `variant_data.py`
 2. Optional Reincubate DeviceIdentifier API if `RI_DEVID_TOKEN` is set
 3. Scoped local `ProductType + DeviceColor + DeviceEnclosureColor` fallback
-4. Manual GUI entry
+4. ProductType-specific color choices from `device_catalog.py`
+5. Manual GUI entry
 
-This exists because `DeviceColor` and `DeviceEnclosureColor` often return numeric Apple-internal codes like `1` and `2`. Those codes are not universal across iPhone generations.
+This exists because `DeviceColor` and `DeviceEnclosureColor` often return numeric Apple-internal codes like `1` and `2`. Those codes are not universal across device generations.
 
 ### `variant_data.py`
 
-Generated/local Apple order-number data.
+Generated/local Apple order-number data for iPhones and iPads.
 
 Example:
 
@@ -368,7 +373,11 @@ Example:
 "MG6K4": ("White", "256 GB")
 ```
 
-The file currently contains thousands of historical iPhone order-number prefixes, plus recent hand-maintained entries needed by this shop workflow.
+The file currently contains thousands of iPhone/iPad order-number prefixes, plus recent hand-maintained entries needed by this shop workflow. Refresh the structured source merge with:
+
+```bash
+python tools/update_variant_data.py
+```
 
 Important: Apple order numbers often appear with a region suffix, for example:
 
@@ -535,12 +544,12 @@ Then verify:
 
 - GUI opens.
 - **Refresh Printers** lists the expected printer.
-- With no phone connected, **Scan iPhone** shows a clear error.
-- With one trusted iPhone connected, **Scan iPhone** fills the form.
+- With no device connected, **Scan Device** shows a clear error.
+- With one trusted iPhone or iPad connected, **Scan Device** fills the form.
 - Model is not `Unknown model` for known ProductTypes.
 - Color is filled when `ModelNumber` exists in `variant_data.py`.
 - Battery health is filled when diagnostics are available.
-- IMEI can be manually entered if missing.
+- IMEI can be manually entered if missing; Wi-Fi iPads can use the serial number.
 - **Generate Label** creates a PDF in `generated_labels/`.
 - The generated PDF opens in Preview.
 - **Print Label** opens the macOS print dialog for the generated label.
@@ -558,20 +567,20 @@ lpstat -p
 
 ## Troubleshooting
 
-### iPhone Not Detected
+### Device Not Detected
 
 - Confirm the USB cable supports data, not only charging.
-- Unlock the iPhone before scanning.
-- Tap **Trust This Mac** on the iPhone.
+- Unlock the iPhone or iPad before scanning.
+- Tap **Trust This Mac** on the device.
 - Run `idevice_id -l` in Terminal.
 - Try another USB port or cable.
 
 ### Trust This Mac Prompt Does Not Appear
 
-- Unplug and reconnect the iPhone.
-- Unlock the phone before reconnecting.
+- Unplug and reconnect the device.
+- Unlock the device before reconnecting.
 - Try another cable.
-- On the iPhone, reset Location & Privacy if needed.
+- On the iPhone or iPad, reset Location & Privacy if needed.
 - Pairing issues are usually outside the app and inside `libimobiledevice`/macOS trust state.
 
 ### IMEI Missing
@@ -584,7 +593,7 @@ InternationalMobileEquipmentIdentity2
 MobileEquipmentIdentifier
 ```
 
-If all are missing, enter IMEI manually. Some devices or iOS states do not expose IMEI reliably.
+If all are missing, enter IMEI manually for cellular devices. Wi-Fi iPads usually do not have an IMEI; the app can print with the serial number instead.
 
 ### Color Missing Or Wrong
 
@@ -757,8 +766,8 @@ The app is local/private by default and does not call that API unless the token 
 - Keep subprocess calls centralized through `utils.run_command()`.
 - Do not call shell commands with `shell=True`.
 - Keep timeouts on every hardware/printing command.
-- Add new ProductType mappings in `model_mapping.py`.
-- Add new color/storage order-number mappings in `variant_data.py`.
+- Refresh ProductType/color catalog data with `python tools/update_device_catalog.py`.
+- Refresh color/storage order-number data with `python tools/update_variant_data.py`.
 - Keep color detection conservative. Numeric color codes must be scoped by `ProductType`.
 - Keep every field editable in the GUI. Apple does not expose every value consistently.
 - Test on a locked phone, untrusted phone, no phone, and trusted phone before shipping changes.

@@ -193,7 +193,7 @@ class _ScanResult:
 
 
 class _IPhoneScanWorker(QObject):
-    """Runs USB detection and iPhone reads off the UI thread."""
+    """Runs USB detection and device reads off the UI thread."""
 
     finished = Signal(object)  # _ScanResult
     failed = Signal(object)  # Exception
@@ -282,11 +282,11 @@ class MainWindow(QMainWindow):
             maximum=MAX_LABEL_RETENTION_DAYS,
         )
 
-        self.status_label = QLabel("No iPhone scanned.")
+        self.status_label = QLabel("No device scanned.")
         self.status_label.setWordWrap(True)
         self.alerts_label = QLabel("No alerts.")
         self.alerts_label.setWordWrap(True)
-        self.scan_button = QPushButton("Scan iPhone")
+        self.scan_button = QPushButton("Scan Device")
         self.scan_button.clicked.connect(self.scan_iphone)
 
         self.model_edit = QLineEdit()
@@ -428,7 +428,7 @@ class MainWindow(QMainWindow):
         content_layout.setColumnStretch(1, 1)
         content_layout.setHorizontalSpacing(18)
 
-        form_box = QGroupBox("iPhone Information")
+        form_box = QGroupBox("Device Information")
         form_layout = QFormLayout(form_box)
         form_layout.setFieldGrowthPolicy(QFormLayout.FieldGrowthPolicy.ExpandingFieldsGrow)
         form_layout.addRow("Model", self.model_edit)
@@ -438,7 +438,7 @@ class MainWindow(QMainWindow):
         form_layout.addRow("IMEI", self.imei_edit)
         form_layout.addRow("Serial number", self.serial_edit)
         form_layout.addRow("Device name", self.device_name_edit)
-        form_layout.addRow("iOS version", self.ios_version_edit)
+        form_layout.addRow("OS version", self.ios_version_edit)
         form_layout.addRow("Battery health", self.battery_health_edit)
         content_layout.addWidget(form_box, 0, 0)
 
@@ -613,9 +613,9 @@ class MainWindow(QMainWindow):
             alerts.append("Color is missing.")
 
         imei = normalize_imei(info.imei)
-        if not imei:
-            alerts.append("IMEI is missing.")
-        elif len(imei) != 15:
+        if not imei and not info.serial_number.strip():
+            alerts.append("IMEI/serial number is missing.")
+        elif imei and len(imei) != 15:
             alerts.append("IMEI should contain 15 digits.")
 
         battery_percent = parse_int(info.battery_health)
@@ -673,9 +673,9 @@ class MainWindow(QMainWindow):
 
         self.set_busy(True)
         if udid:
-            self.status_label.setText(f"Reading iPhone information from {udid}...")
+            self.status_label.setText(f"Reading device information from {udid}...")
         else:
-            self.status_label.setText("Scanning for connected iPhones...")
+            self.status_label.setText("Scanning for connected iPhones and iPads...")
 
         thread = QThread(self)
         worker = _IPhoneScanWorker(udid)
@@ -715,7 +715,7 @@ class MainWindow(QMainWindow):
             self.set_busy(False)
             message = NO_DEVICE_MESSAGE
             self.status_label.setText(message)
-            self.show_error("No iPhone Detected", message)
+            self.show_error("No Device Detected", message)
             return
 
         if len(result.devices) > 1 and result.info is None:
@@ -723,8 +723,8 @@ class MainWindow(QMainWindow):
             labels = [device.display_name for device in result.devices]
             choice, ok = QInputDialog.getItem(
                 self,
-                "Select iPhone",
-                "Multiple iPhones were detected:",
+                "Select Device",
+                "Multiple devices were detected:",
                 labels,
                 0,
                 False,
@@ -738,8 +738,8 @@ class MainWindow(QMainWindow):
 
         if result.info is None:
             self.set_busy(False)
-            self.status_label.setText("Scan did not return iPhone information.")
-            self.show_error("Scan Failed", "Scan did not return iPhone information.")
+            self.status_label.setText("Scan did not return device information.")
+            self.show_error("Scan Failed", "Scan did not return device information.")
             return
 
         info = result.info
@@ -752,8 +752,8 @@ class MainWindow(QMainWindow):
             notes.append(info.color_source_note)
         if info.variant_source_note and info.variant_source_note != info.color_source_note:
             notes.append(info.variant_source_note)
-        if not info.imei:
-            notes.append("IMEI was not available; enter it manually before printing.")
+        if not info.imei and not info.serial_number:
+            notes.append("IMEI/serial was not available; enter an identifier manually before printing.")
 
         status = f"Connected: {info.device_name or result.selected_udid or info.udid}"
         if notes:
@@ -979,19 +979,23 @@ class MainWindow(QMainWindow):
         except AppError as exc:
             self.show_error("Reprint Failed", str(exc))
 
-    def validate_label_fields(self, require_imei: bool = False) -> bool:
+    def validate_label_fields(self, require_identifier: bool = False) -> bool:
         info = self.form_info()
         if not info.marketing_model:
             self.show_error("Missing Model", "Enter a model before generating a label.")
             return False
-        if require_imei and not info.imei:
-            self.show_error("Missing IMEI", "Enter the IMEI before printing this label.")
+        has_identifier = bool(normalize_imei(info.imei) or info.serial_number.strip())
+        if require_identifier and not has_identifier:
+            self.show_error(
+                "Missing Identifier",
+                "Enter an IMEI or serial number before printing this label.",
+            )
             return False
-        if not info.imei:
+        if not has_identifier:
             proceed = QMessageBox.question(
                 self,
-                "IMEI Missing",
-                "IMEI is missing. Generate the label with a manual-entry warning?",
+                "Identifier Missing",
+                "IMEI and serial number are missing. Generate the label with a manual-entry warning?",
                 QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
                 QMessageBox.StandardButton.No,
             )
@@ -999,7 +1003,7 @@ class MainWindow(QMainWindow):
         return True
 
     def generate_label(self) -> None:
-        if not self.validate_label_fields(require_imei=False):
+        if not self.validate_label_fields(require_identifier=False):
             return
 
         try:
@@ -1079,7 +1083,7 @@ class MainWindow(QMainWindow):
             )
             return
 
-        if not self.validate_label_fields(require_imei=True):
+        if not self.validate_label_fields(require_identifier=True):
             return
 
         if self.current_pdf_path is None or not self.current_pdf_path.exists():
@@ -1125,7 +1129,7 @@ class MainWindow(QMainWindow):
         self.battery_health_edit.clear()
         self.current_pdf_path = None
         self.generated_path_label.setText("No label generated yet.")
-        self.status_label.setText("No iPhone scanned.")
+        self.status_label.setText("No device scanned.")
         self.update_preview_from_form()
 
     # --- Auto-update -----------------------------------------------------

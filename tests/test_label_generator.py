@@ -9,6 +9,7 @@ import unittest
 from label_generator import (
     build_label_qr_data,
     cleanup_generated_label_pdfs,
+    _primary_identifier_line,
     write_calibration_label_pdf,
     write_label_pdf,
 )
@@ -34,6 +35,18 @@ class LabelGeneratorTest(unittest.TestCase):
         self.assertIn("SN: ABC123", payload)
         self.assertIn("MODEL: iPhone 15", payload)
         self.assertIn("BATTERY: 86% (412 cycles)", payload)
+
+    def test_primary_identifier_uses_serial_when_imei_is_missing(self) -> None:
+        self.assertEqual(
+            _primary_identifier_line(
+                IPhoneInfo(
+                    marketing_model="iPad Pro 11-inch (M4)",
+                    technical_model="iPad16,3",
+                    serial_number="IPAD123",
+                )
+            ),
+            "Serial: IPAD123",
+        )
 
     def test_write_label_pdf_creates_pdf(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:

@@ -1,4 +1,4 @@
-"""Shared helpers for command execution and iPhone label data."""
+"""Shared helpers for command execution and Apple device label data."""
 
 from __future__ import annotations
 
@@ -163,7 +163,7 @@ def normalize_imei(value: str) -> str:
 
 
 def round_storage_capacity(total_bytes: int | None) -> str:
-    """Round byte capacity to a common commercial iPhone storage size."""
+    """Round byte capacity to a common commercial Apple device storage size."""
 
     if not total_bytes or total_bytes <= 0:
         return ""

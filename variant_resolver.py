@@ -1,4 +1,4 @@
-"""Resolve iPhone color and storage variants.
+"""Resolve Apple device color and storage variants.
 
 libimobiledevice often exposes ``DeviceColor`` and ``DeviceEnclosureColor`` as
 small numeric codes. Those codes are not globally meaningful; the reliable key
@@ -21,6 +21,8 @@ from urllib.error import HTTPError, URLError
 from urllib.parse import quote
 from urllib.request import Request, urlopen
 
+from appledb_client import color_options_for_product_type as fetch_color_options
+from device_catalog import PRODUCT_COLOR_OPTIONS as CATALOG_PRODUCT_COLOR_OPTIONS
 from variant_data import MODEL_NUMBER_TO_VARIANT
 
 
@@ -86,7 +88,7 @@ LOCAL_MODEL_NUMBER_OVERRIDES: dict[str, VariantInfo] = {
 
 # Fallback for numeric DeviceColor/DeviceEnclosureColor pairs observed on real
 # hardware. These are deliberately scoped by ProductType because the same code
-# can mean different colors on different iPhone generations.
+# can mean different colors on different device generations.
 PRODUCT_COLOR_CODE_VARIANTS: dict[tuple[str, str, str], VariantInfo] = {
     ("iPhone17,1", "1", "1"): _variant("Black Titanium", "", "local color-code table"),
     ("iPhone18,3", "1", "2"): _variant("White", "", "local color-code table"),
@@ -161,7 +163,12 @@ PRODUCT_COLOR_OPTIONS: dict[str, tuple[str, ...]] = {
 
 
 def color_options_for_product_type(product_type: str) -> tuple[str, ...]:
-    return PRODUCT_COLOR_OPTIONS.get(product_type.strip(), ())
+    normalized = product_type.strip()
+    return (
+        CATALOG_PRODUCT_COLOR_OPTIONS.get(normalized)
+        or PRODUCT_COLOR_OPTIONS.get(normalized)
+        or fetch_color_options(normalized)
+    )
 
 
 def lookup_local_model_variant(model_number: str) -> VariantInfo:

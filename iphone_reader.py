@@ -1,4 +1,4 @@
-"""Read connected iPhone information through libimobiledevice CLI tools."""
+"""Read connected Apple mobile device information through libimobiledevice CLI tools."""
 
 from __future__ import annotations
 
@@ -22,7 +22,7 @@ from variant_resolver import resolve_variant
 
 
 class IPhoneReaderError(AppError):
-    """Raised for iPhone detection and metadata errors."""
+    """Raised for device detection and metadata errors."""
 
     def __init__(self, message: str, title: str = "Scan Failed") -> None:
         super().__init__(message)
@@ -30,32 +30,32 @@ class IPhoneReaderError(AppError):
 
 
 LOCKED_DEVICE_MESSAGE = (
-    "iPhone locked.\n\n"
-    "Unlock the iPhone, keep it on the Home Screen, then click Scan iPhone again.\n"
+    "Device locked.\n\n"
+    "Unlock the iPhone or iPad, keep it on the Home Screen, then click Scan Device again.\n"
     "If a Trust This Mac prompt appears, tap Trust."
 )
 
 TRUST_PENDING_MESSAGE = (
     "Trust confirmation pending.\n\n"
-    "Look at the iPhone screen and tap Trust This Mac.\n"
-    "Then enter the iPhone passcode if iOS asks for it, and click Scan iPhone again."
+    "Look at the iPhone or iPad screen and tap Trust This Mac.\n"
+    "Then enter the device passcode if iOS/iPadOS asks for it, and click Scan Device again."
 )
 
 TRUST_DENIED_MESSAGE = (
-    "This Mac is not trusted by the iPhone.\n\n"
-    "Unplug the iPhone, plug it back in, unlock it, and tap Trust This Mac.\n"
-    "If the prompt does not appear, reset Location & Privacy on the iPhone and try again."
+    "This Mac is not trusted by the device.\n\n"
+    "Unplug the iPhone or iPad, plug it back in, unlock it, and tap Trust This Mac.\n"
+    "If the prompt does not appear, reset Location & Privacy on the device and try again."
 )
 
 RECONNECT_DEVICE_MESSAGE = (
-    "The iPhone connection was lost or could not be opened.\n\n"
-    "Unplug the cable, reconnect the iPhone directly to the Mac, unlock it, and click Scan iPhone again.\n"
+    "The device connection was lost or could not be opened.\n\n"
+    "Unplug the cable, reconnect the iPhone or iPad directly to the Mac, unlock it, and click Scan Device again.\n"
     "If it still fails, try another USB cable or port."
 )
 
 NO_DEVICE_MESSAGE = (
-    "No iPhone detected.\n\n"
-    "Connect the iPhone by USB, unlock it, and tap Trust This Mac if prompted.\n"
+    "No iPhone or iPad detected.\n\n"
+    "Connect the device by USB, unlock it, and tap Trust This Mac if prompted.\n"
     "If it is already connected, unplug and reconnect the cable."
 )
 
@@ -99,7 +99,7 @@ def connection_error_from_message(message: str) -> IPhoneReaderError:
 
     normalized = message.lower()
     if "lockdown_e_password_protected" in normalized or "passwordprotected" in normalized:
-        return IPhoneReaderError(LOCKED_DEVICE_MESSAGE, title="iPhone Locked")
+        return IPhoneReaderError(LOCKED_DEVICE_MESSAGE, title="Device Locked")
     if "lockdown_e_pairing_dialog_response_pending" in normalized:
         return IPhoneReaderError(TRUST_PENDING_MESSAGE, title="Trust This Mac")
     if (
@@ -113,7 +113,7 @@ def connection_error_from_message(message: str) -> IPhoneReaderError:
         or "no device" in normalized
         or "please connect" in normalized
     ):
-        return IPhoneReaderError(NO_DEVICE_MESSAGE, title="No iPhone Detected")
+        return IPhoneReaderError(NO_DEVICE_MESSAGE, title="No Device Detected")
     if (
         "could not connect" in normalized
         or "lockdown_e_mux_error" in normalized
@@ -122,7 +122,7 @@ def connection_error_from_message(message: str) -> IPhoneReaderError:
         or "broken pipe" in normalized
         or "ssl" in normalized
     ):
-        return IPhoneReaderError(RECONNECT_DEVICE_MESSAGE, title="Reconnect iPhone")
+        return IPhoneReaderError(RECONNECT_DEVICE_MESSAGE, title="Reconnect Device")
     return IPhoneReaderError(message)
 
 
@@ -239,7 +239,7 @@ def _first_int(source: dict, *keys: str) -> int | None:
 def _health_percent(full_charge: int | None, design: int | None) -> str:
     """Battery health = current full-charge capacity / original design capacity.
 
-    This mirrors the iPhone's own "Maximum Capacity" screen and 3uTools.
+    This mirrors the device's own "Maximum Capacity" screen and 3uTools.
     """
 
     if not isinstance(full_charge, int) or not isinstance(design, int):
@@ -264,7 +264,7 @@ def get_battery_info(udid: str, timeout: float = 8.0) -> tuple[str, str]:
     """Return battery health percentage and cycle count when diagnostics exposes them.
 
     Health is derived from the raw full-charge capacity relative to the design
-    capacity (the same ratio the iPhone's Maximum Capacity screen and 3uTools
+    capacity (the same ratio the device's Maximum Capacity screen and 3uTools
     show). ``MaxCapacity`` is normalised to 100 by iOS and cannot be used.
     """
 
@@ -317,7 +317,7 @@ def get_battery_info(udid: str, timeout: float = 8.0) -> tuple[str, str]:
 
 
 def detect_devices(timeout: float = 6.0) -> list[ConnectedDevice]:
-    """Detect connected iPhones and include a friendly name when possible."""
+    """Detect connected iPhone/iPad devices and include a friendly name when possible."""
 
     udids = list_connected_udids(timeout=timeout)
     devices: list[ConnectedDevice] = []
@@ -397,7 +397,7 @@ def read_iphone_info(udid: str) -> IPhoneInfo:
             else
             f"Color read from {color_key_used}; verify manually."
             if color_key_used
-            else "Color was not available from the iPhone; choose it manually."
+            else "Color was not available from the device; choose it manually."
         ),
         variant_source_note=(
             f"Variant resolved from {variant.source}." if variant.found else ""

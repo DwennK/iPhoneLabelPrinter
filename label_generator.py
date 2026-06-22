@@ -34,12 +34,22 @@ def build_label_qr_data(info: IPhoneInfo) -> str:
         ("STORAGE", info.storage.strip()),
         ("COLOR", info.color.strip()),
         ("BATTERY", info.battery_health.strip()),
-        ("IOS", info.ios_version.strip()),
+        ("OS", info.ios_version.strip()),
     ]
     lines = [f"{key}: {value}" for key, value in fields if value]
     if lines:
         return "\n".join(lines)
-    return "Unknown iPhone"
+    return "Unknown device"
+
+
+def _primary_identifier_line(info: IPhoneInfo) -> str:
+    imei = normalize_imei(info.imei)
+    if imei:
+        return f"IMEI: {imei}"
+    serial = info.serial_number.strip()
+    if serial:
+        return f"Serial: {serial}"
+    return "ID: Manual entry needed"
 
 
 def _draw_fit_text(
@@ -133,9 +143,10 @@ def write_label_pdf(
     pdf.setFillColorRGB(0, 0, 0)
 
     title = info.marketing_model or "Unknown model"
+    identifier_line = _primary_identifier_line(info)
     detail_parts = [part for part in [info.storage, info.color] if part.strip()]
     detail_line = " - ".join(detail_parts)
-    ios_line = f"iOS: {info.ios_version.strip()}" if info.ios_version.strip() else ""
+    ios_line = f"OS: {info.ios_version.strip()}" if info.ios_version.strip() else ""
 
     if height > width:
         info_line_count = 2 + (1 if info.battery_health else 0) + (1 if ios_line else 0)
@@ -158,7 +169,7 @@ def write_label_pdf(
         pdf.drawImage(str(qr_path), qr_x, qr_y, width=qr_size, height=qr_size, mask="auto")
 
         y = qr_y - 2.4 * mm
-        _draw_fit_text(pdf, f"IMEI: {imei or 'Manual entry needed'}", margin, y, usable_width, "Helvetica", 8)
+        _draw_fit_text(pdf, identifier_line, margin, y, usable_width, "Helvetica", 8)
         if info.battery_health:
             battery_line = f"Battery: {info.battery_health}"
             if info.battery_cycle_count:
@@ -182,7 +193,7 @@ def write_label_pdf(
         _draw_fit_text(pdf, detail_line, margin, y, text_max_width, "Helvetica", 8)
         y -= 6 * mm
         line_width = text_max_width if y >= qr_y - 1 * mm else usable_width
-        _draw_fit_text(pdf, f"IMEI: {imei or 'Manual entry needed'}", margin, y, line_width, "Helvetica", 7)
+        _draw_fit_text(pdf, identifier_line, margin, y, line_width, "Helvetica", 7)
         if info.battery_health:
             battery_line = f"Battery: {info.battery_health}"
             if info.battery_cycle_count:

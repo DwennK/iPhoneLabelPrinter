@@ -1,12 +1,18 @@
-"""ProductType to marketing-name mapping for iPhones.
+"""ProductType to marketing-name mapping for iPhone and iPad devices.
 
-Apple's ProductType values are stable identifiers such as ``iPhone16,1``.
+Apple's ProductType values are stable identifiers such as ``iPhone16,1`` or
+``iPad16,3``.
 This map is intentionally local and conservative: when a future device is not
 listed, the app displays the technical model and lets staff edit the marketing
 name manually.
 """
 
 from __future__ import annotations
+
+from device_catalog import (
+    PRODUCT_TYPE_TO_MARKETING_NAME as CATALOG_PRODUCT_TYPE_TO_MARKETING_NAME,
+)
+from appledb_client import marketing_name_for_product_type as fetch_marketing_name
 
 
 PRODUCT_TYPE_TO_MARKETING_NAME: dict[str, str] = {
@@ -91,4 +97,10 @@ PRODUCT_TYPE_TO_MARKETING_NAME: dict[str, str] = {
 def marketing_name_for_product_type(product_type: str) -> str | None:
     """Return the marketing name for a ProductType, if known."""
 
-    return PRODUCT_TYPE_TO_MARKETING_NAME.get(product_type.strip())
+    normalized = product_type.strip()
+    return (
+        CATALOG_PRODUCT_TYPE_TO_MARKETING_NAME.get(normalized)
+        or PRODUCT_TYPE_TO_MARKETING_NAME.get(normalized)
+        or fetch_marketing_name(normalized)
+        or None
+    )
