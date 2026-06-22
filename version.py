@@ -7,7 +7,7 @@ compares this value against the latest GitHub Release tag.
 
 from __future__ import annotations
 
-__version__ = "1.0.4"
+__version__ = "1.0.5"
 
 # owner/repo used by the auto-updater to query the GitHub Releases API.
 GITHUB_REPO = "DwennK/iPhoneLabelPrinter"
