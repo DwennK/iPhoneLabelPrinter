@@ -56,7 +56,7 @@ class IPhoneInfo:
     variant_source_note: str = ""
 
 
-COMMON_STORAGE_GB = [64, 128, 256, 512, 1024, 2048]
+COMMON_STORAGE_GB = [4, 8, 16, 32, 64, 128, 256, 512, 1024, 2048]
 
 
 def resolve_tool(name: str) -> str | None:

@@ -10,6 +10,8 @@ class UtilsTest(unittest.TestCase):
         self.assertEqual(normalize_imei("35 502-642/9560655"), "355026429560655")
 
     def test_round_storage_capacity_uses_commercial_sizes(self) -> None:
+        self.assertEqual(round_storage_capacity(15_900_000_000), "16 GB")
+        self.assertEqual(round_storage_capacity(31_900_000_000), "32 GB")
         self.assertEqual(round_storage_capacity(127_900_000_000), "128 GB")
         self.assertEqual(round_storage_capacity(1_000_000_000_000), "1 TB")
 
