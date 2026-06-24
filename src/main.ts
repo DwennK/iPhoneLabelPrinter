@@ -44,8 +44,20 @@ interface LabelOptions {
   labelOrientation: "portrait" | "landscape";
 }
 
+interface AppSettings extends LabelOptions {
+  labelRetentionDays: number;
+}
+
 interface GenerateLabelResponse {
   pdfPath: string;
+}
+
+interface CleanupLabelsResponse {
+  deletedPaths: string[];
+}
+
+interface ExportHistoryResponse {
+  destinationPath: string;
 }
 
 interface HistoryEntry {
@@ -70,7 +82,8 @@ interface HistoryEntry {
 interface EnvironmentInfo {
   projectRoot: string;
   bundledWindowsBinDir: string;
-  pythonBridge: string;
+  generatedLabelsDir: string;
+  historyPath: string;
 }
 
 const DEFAULT_COLORS = [
@@ -182,21 +195,23 @@ async function bootstrap() {
   await Promise.allSettled([loadEnvironment(), refreshPrinters(), refreshHistory()]);
 }
 
-function loadSettings(): LabelOptions {
-  const fallback: LabelOptions = {
+function loadSettings(): AppSettings {
+  const fallback: AppSettings = {
     labelWidthMm: 62,
     labelHeightMm: 40,
     labelOrientation: "landscape",
+    labelRetentionDays: 30,
   };
   try {
     const raw = localStorage.getItem("iphoneLabelPrinter.tauri.settings");
     if (!raw) return fallback;
-    const parsed = JSON.parse(raw) as Partial<LabelOptions>;
+    const parsed = JSON.parse(raw) as Partial<AppSettings>;
     return {
       labelWidthMm: positiveNumber(parsed.labelWidthMm, fallback.labelWidthMm),
       labelHeightMm: positiveNumber(parsed.labelHeightMm, fallback.labelHeightMm),
       labelOrientation:
         parsed.labelOrientation === "portrait" ? "portrait" : "landscape",
+      labelRetentionDays: nonNegativeNumber(parsed.labelRetentionDays, fallback.labelRetentionDays),
     };
   } catch {
     return fallback;
@@ -213,6 +228,11 @@ function saveSettings() {
 function positiveNumber(value: unknown, fallback: number): number {
   const parsed = Number(value);
   return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback;
+}
+
+function nonNegativeNumber(value: unknown, fallback: number): number {
+  const parsed = Number(value);
+  return Number.isFinite(parsed) && parsed >= 0 ? parsed : fallback;
 }
 
 async function loadEnvironment() {
@@ -376,7 +396,9 @@ function historyTab(): string {
         <div class="history-toolbar">
           <input class="search" data-history-search value="${escapeAttribute(state.historyQuery)}" placeholder="Search model, IMEI, serial, color..." />
           <button class="secondary" data-action="refresh-history" type="button" ${disabledIfBusy()}>Refresh</button>
+          <button class="secondary" data-action="reprint-history" type="button" ${disabledIfBusy()}>Reprint Selected</button>
           <button class="secondary" data-action="open-history-pdf" type="button" ${disabledIfBusy()}>Open Selected PDF</button>
+          <button class="secondary" data-action="export-history" type="button" ${disabledIfBusy()}>Export CSV</button>
         </div>
         <div class="table-wrap">
           <table>
@@ -426,8 +448,14 @@ function settingsTab(): string {
               <option value="landscape" ${state.settings.labelOrientation === "landscape" ? "selected" : ""}>Landscape</option>
             </select>
           </label>
+          <label class="field">
+            <span>Keep generated PDFs</span>
+            <input data-setting="labelRetentionDays" type="number" min="0" max="365" step="1" value="${state.settings.labelRetentionDays}" />
+          </label>
         </div>
         <div class="button-row">
+          <button class="secondary" data-action="cleanup-labels" type="button" ${disabledIfBusy()}>Clean Now</button>
+          <button class="secondary" data-action="print-test-label" type="button" ${disabledIfBusy()}>Print Test Label</button>
           <button class="secondary" data-action="reset-settings" type="button">Reset Label Size</button>
           <button class="primary" data-action="save-settings" type="button">Save Settings</button>
         </div>
@@ -437,9 +465,10 @@ function settingsTab(): string {
         <dl class="env-list">
           <div><dt>Project root</dt><dd>${escapeHtml(state.environment?.projectRoot || "Loading...")}</dd></div>
           <div><dt>Windows binaries</dt><dd>${escapeHtml(state.environment?.bundledWindowsBinDir || "Loading...")}</dd></div>
-          <div><dt>PDF bridge</dt><dd>${escapeHtml(state.environment?.pythonBridge || "Loading...")}</dd></div>
+          <div><dt>Generated PDFs</dt><dd>${escapeHtml(state.environment?.generatedLabelsDir || "Loading...")}</dd></div>
+          <div><dt>History CSV</dt><dd>${escapeHtml(state.environment?.historyPath || "Loading...")}</dd></div>
         </dl>
-        <p class="muted">The Tauri backend reads devices and printers in Rust. PDF rendering still calls the existing Python label generator during this migration step.</p>
+        <p class="muted">The Tauri backend now scans devices, generates PDFs, prints labels, and writes history from Rust.</p>
       </section>
     </section>
   `;
@@ -459,13 +488,17 @@ function attachEvents() {
   app.querySelector<HTMLButtonElement>('[data-action="refresh-printers"]')?.addEventListener("click", refreshPrinters);
   app.querySelector<HTMLButtonElement>('[data-action="generate"]')?.addEventListener("click", generateLabel);
   app.querySelector<HTMLButtonElement>('[data-action="print"]')?.addEventListener("click", printLabel);
+  app.querySelector<HTMLButtonElement>('[data-action="print-test-label"]')?.addEventListener("click", printTestLabel);
   app.querySelector<HTMLButtonElement>('[data-action="open-pdf"]')?.addEventListener("click", openGeneratedPdf);
   app.querySelector<HTMLButtonElement>('[data-action="refresh-history"]')?.addEventListener("click", () => {
     void refreshHistory();
   });
   app.querySelector<HTMLButtonElement>('[data-action="open-history-pdf"]')?.addEventListener("click", openSelectedHistoryPdf);
+  app.querySelector<HTMLButtonElement>('[data-action="reprint-history"]')?.addEventListener("click", reprintSelectedHistory);
+  app.querySelector<HTMLButtonElement>('[data-action="export-history"]')?.addEventListener("click", exportHistoryCsv);
   app.querySelector<HTMLButtonElement>('[data-action="save-settings"]')?.addEventListener("click", saveSettingsFromForm);
   app.querySelector<HTMLButtonElement>('[data-action="reset-settings"]')?.addEventListener("click", resetSettings);
+  app.querySelector<HTMLButtonElement>('[data-action="cleanup-labels"]')?.addEventListener("click", cleanupGeneratedLabels);
 
   app.querySelector<HTMLSelectElement>("[data-device]")?.addEventListener("change", (event) => {
     state.selectedUdid = (event.target as HTMLSelectElement).value;
@@ -491,10 +524,15 @@ function attachEvents() {
 
   app.querySelectorAll<HTMLInputElement | HTMLSelectElement>("[data-setting]").forEach((control) => {
     control.addEventListener("change", () => {
-      const key = control.dataset.setting as keyof LabelOptions;
+      const key = control.dataset.setting as keyof AppSettings;
       if (key === "labelOrientation") {
         state.settings.labelOrientation =
           control.value === "portrait" ? "portrait" : "landscape";
+      } else if (key === "labelRetentionDays") {
+        state.settings.labelRetentionDays = nonNegativeNumber(
+          control.value,
+          state.settings.labelRetentionDays,
+        );
       } else {
         state.settings[key] = positiveNumber(control.value, Number(state.settings[key])) as never;
       }
@@ -620,6 +658,30 @@ async function printLabel() {
   });
 }
 
+async function printTestLabel() {
+  if (!state.selectedPrinter) {
+    setError("No Printer Selected", "No printer is selected. Add or select a printer before printing a test label.");
+    return;
+  }
+  const options = effectiveLabelOptions();
+  await withBusy("Generating calibration label...", async () => {
+    const response = await invoke<GenerateLabelResponse>("generate_calibration_label", {
+      request: { options },
+    });
+    state.generatedPdfPath = response.pdfPath;
+    const message = await invoke<string>("print_label", {
+      request: {
+        printerName: state.selectedPrinter,
+        pdfPath: response.pdfPath,
+        labelWidthMm: options.labelWidthMm,
+        labelHeightMm: options.labelHeightMm,
+        orientation: options.labelOrientation,
+      },
+    });
+    state.status = message || "Test label submitted.";
+  });
+}
+
 async function refreshHistory(showStatus = true) {
   state.history = await invoke<HistoryEntry[]>("read_history").catch(() => []);
   if (showStatus) {
@@ -635,15 +697,65 @@ async function openGeneratedPdf() {
 }
 
 async function openSelectedHistoryPdf() {
-  const selected = app.querySelector<HTMLTableRowElement>("tr.is-selected");
-  if (!selected) {
+  const entry = selectedHistoryEntry();
+  if (!entry) {
     setError("No History Row Selected", "Select a history row first.");
     return;
   }
-  const entry = filteredHistory()[Number(selected.dataset.historyIndex)];
-  if (entry?.pdfPath) {
+  if (entry.pdfPath) {
     await openPath(entry.pdfPath);
   }
+}
+
+async function reprintSelectedHistory() {
+  const entry = selectedHistoryEntry();
+  if (!entry) {
+    setError("No History Row Selected", "Select a history row to reprint.");
+    return;
+  }
+  if (!state.selectedPrinter) {
+    setError("No Printer Selected", "No printer is selected. Add or select a printer before reprinting.");
+    return;
+  }
+  const fallback = effectiveLabelOptions();
+  const labelWidthMm = positiveNumber(entry.labelWidthMm, fallback.labelWidthMm);
+  const labelHeightMm = positiveNumber(entry.labelHeightMm, fallback.labelHeightMm);
+  const orientation =
+    entry.labelOrientation === "portrait" || entry.labelOrientation === "landscape"
+      ? entry.labelOrientation
+      : fallback.labelOrientation;
+  await withBusy("Submitting history label...", async () => {
+    const message = await invoke<string>("print_label", {
+      request: {
+        printerName: state.selectedPrinter,
+        pdfPath: entry.pdfPath,
+        labelWidthMm,
+        labelHeightMm,
+        orientation,
+      },
+    });
+    state.status = message || "History label reprinted.";
+    await refreshHistory(false);
+  });
+}
+
+async function exportHistoryCsv() {
+  await withBusy("Exporting history CSV...", async () => {
+    const response = await invoke<ExportHistoryResponse>("export_history", {
+      request: { destinationPath: null },
+    });
+    state.status = `History exported: ${response.destinationPath}`;
+    await openPath(response.destinationPath);
+  });
+}
+
+async function cleanupGeneratedLabels() {
+  await withBusy("Cleaning generated PDFs...", async () => {
+    const response = await invoke<CleanupLabelsResponse>("cleanup_generated_labels", {
+      request: { retentionDays: Math.round(state.settings.labelRetentionDays) },
+    });
+    state.status = `Deleted ${response.deletedPaths.length} old label PDF(s).`;
+  });
 }
 
 function clearForm() {
@@ -665,11 +777,19 @@ function resetSettings() {
     labelWidthMm: 62,
     labelHeightMm: 40,
     labelOrientation: "landscape",
+    labelRetentionDays: 30,
   };
   saveSettings();
   state.generatedPdfPath = "";
   state.status = "Settings reset.";
   render();
+}
+
+function selectedHistoryEntry(): HistoryEntry | null {
+  const selected = app.querySelector<HTMLTableRowElement>("tr.is-selected");
+  if (!selected) return null;
+  const index = Number(selected.dataset.historyIndex);
+  return filteredHistory()[index] || null;
 }
 
 async function withBusy(message: string, action: () => Promise<void>) {

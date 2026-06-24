@@ -58,6 +58,24 @@ pub struct GenerateLabelResponse {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
+pub struct CalibrationLabelRequest {
+    pub options: LabelOptions,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct CleanupLabelsRequest {
+    pub retention_days: i64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct CleanupLabelsResponse {
+    pub deleted_paths: Vec<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct PrintRequest {
     pub printer_name: String,
     pub pdf_path: String,
@@ -87,10 +105,23 @@ pub struct HistoryEntry {
     pub label_orientation: String,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ExportHistoryRequest {
+    pub destination_path: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ExportHistoryResponse {
+    pub destination_path: String,
+}
+
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct EnvironmentInfo {
     pub project_root: String,
     pub bundled_windows_bin_dir: String,
-    pub python_bridge: String,
+    pub generated_labels_dir: String,
+    pub history_path: String,
 }

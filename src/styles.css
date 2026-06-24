@@ -308,10 +308,12 @@ dd {
 
 .history-toolbar {
   margin-bottom: 10px;
+  flex-wrap: wrap;
 }
 
 .history-toolbar .search {
   flex: 1;
+  min-width: 280px;
 }
 
 .table-wrap {

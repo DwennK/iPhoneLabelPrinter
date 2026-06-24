@@ -3,14 +3,15 @@ mod command_runner;
 mod device;
 mod error;
 mod history;
+mod label;
 mod printer;
-mod python_bridge;
 mod types;
 
 use crate::error::{AppError, AppResult};
 use crate::types::{
-    ConnectedDevice, EnvironmentInfo, GenerateLabelRequest, GenerateLabelResponse, HistoryEntry,
-    IPhoneInfo, PrintRequest, PrinterInfo,
+    CalibrationLabelRequest, CleanupLabelsRequest, CleanupLabelsResponse, ConnectedDevice,
+    EnvironmentInfo, ExportHistoryRequest, ExportHistoryResponse, GenerateLabelRequest,
+    GenerateLabelResponse, HistoryEntry, IPhoneInfo, PrintRequest, PrinterInfo,
 };
 
 async fn blocking<T, F>(work: F) -> AppResult<T>
@@ -45,14 +46,31 @@ async fn list_printers() -> AppResult<Vec<PrinterInfo>> {
 
 #[tauri::command]
 async fn generate_label(request: GenerateLabelRequest) -> AppResult<GenerateLabelResponse> {
-    blocking(move || python_bridge::generate_label(&request)).await
+    blocking(move || label::generate_label(&request)).await
+}
+
+#[tauri::command]
+async fn generate_calibration_label(
+    request: CalibrationLabelRequest,
+) -> AppResult<GenerateLabelResponse> {
+    blocking(move || label::generate_calibration_label(&request)).await
+}
+
+#[tauri::command]
+async fn cleanup_generated_labels(
+    request: CleanupLabelsRequest,
+) -> AppResult<CleanupLabelsResponse> {
+    blocking(move || label::cleanup_generated_label_pdfs(&request)).await
 }
 
 #[tauri::command]
 async fn print_label(request: PrintRequest) -> AppResult<String> {
     blocking(move || {
         let message = printer::print_label(&request)?;
-        let _ = python_bridge::mark_label_printed(&request.pdf_path, &request.printer_name);
+        let _ = history::mark_label_printed(
+            std::path::Path::new(&request.pdf_path),
+            &request.printer_name,
+        );
         Ok(message)
     })
     .await
@@ -64,13 +82,19 @@ async fn read_history() -> AppResult<Vec<HistoryEntry>> {
 }
 
 #[tauri::command]
+async fn export_history(request: ExportHistoryRequest) -> AppResult<ExportHistoryResponse> {
+    blocking(move || history::export_history(&request)).await
+}
+
+#[tauri::command]
 fn environment_info() -> EnvironmentInfo {
     EnvironmentInfo {
         project_root: command_runner::project_root().display().to_string(),
         bundled_windows_bin_dir: command_runner::bundled_windows_bin_dir()
             .display()
             .to_string(),
-        python_bridge: command_runner::python_bridge_path().display().to_string(),
+        generated_labels_dir: label::generated_labels_dir().display().to_string(),
+        history_path: history::history_path().display().to_string(),
     }
 }
 
@@ -84,8 +108,11 @@ pub fn run() {
             color_options,
             list_printers,
             generate_label,
+            generate_calibration_label,
+            cleanup_generated_labels,
             print_label,
             read_history,
+            export_history,
             environment_info,
         ])
         .run(tauri::generate_context!())

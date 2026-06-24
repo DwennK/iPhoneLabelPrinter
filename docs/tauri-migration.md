@@ -2,7 +2,8 @@
 
 This migration is additive. The existing Python/PySide app, PyInstaller release
 workflow, launch scripts, generated data files, and vendored Windows binaries
-remain in place.
+remain in place until the Tauri build is validated on the shop Windows/macOS
+machines.
 
 ## Current Python Surfaces To Preserve
 
@@ -30,8 +31,6 @@ remain in place.
 - `src/`: dense utility UI for scan, editable fields, PDF generation, printer
   selection, print, history, and settings.
 - `src-tauri/`: Tauri 2 backend in Rust.
-- `tauri_bridge.py`: temporary bridge used only for ReportLab PDF generation and
-  history mutation while those surfaces are still Python-owned.
 
 ## Rust Backend Status
 
@@ -46,8 +45,11 @@ Implemented:
   - `color_options`
   - `list_printers`
   - `generate_label`
+  - `generate_calibration_label`
+  - `cleanup_generated_labels`
   - `print_label`
   - `read_history`
+  - `export_history`
   - `environment_info`
 - Ports the core iPhone read flow to Rust:
   - `idevice_id -l`
@@ -64,17 +66,10 @@ Implemented:
   - `variant_resolver.py`
 - Lists printers with CUPS on macOS/Linux and PowerShell/CIM on Windows.
 - Prints with CUPS on macOS/Linux and SumatraPDF on Windows.
-- Reads existing `label_history.csv` from Rust.
-
-Temporary bridge:
-
-- `generate_label` calls `tauri_bridge.py`, which calls `label_generator.py` and
-  `history.py`.
-- `print_label` submits the job in Rust, then asks the bridge to mark the newest
-  matching history row as printed.
-
-This keeps the label PDF output identical to the Python app while the migration
-is still in progress.
+- Generates normal and calibration label PDFs in Rust with vector QR codes and
+  the same thermal page size defaults.
+- Reads and writes existing `label_history.csv` from Rust, including generated
+  rows, printed rows, and CSV export.
 
 ## Frontend Status
 
@@ -82,44 +77,29 @@ Implemented:
 
 - Label workspace with scan, multi-device selection, editable fields, alerts,
   generated PDF path, printer selector, generate, print, and open PDF.
-- History workspace with search, refresh, selectable rows, and open selected PDF.
-- Settings workspace for width, height, and orientation using local storage.
+- History workspace with search, refresh, selectable rows, reprint selected,
+  open selected PDF, and export CSV.
+- Settings workspace for width, height, orientation, generated PDF cleanup, and
+  calibration label printing.
 - Operational layout based on the existing PySide tabs, not a landing page.
 
 Not yet migrated:
 
 - Live PDF preview before generation. The current Tauri UI shows the generated
   path and can open the PDF.
-- Calibration label action.
-- Generated-label retention cleanup controls.
-- History CSV export and direct reprint selected history row.
 - GitHub Releases auto-update flow.
-- Native Rust PDF rendering. ReportLab remains the source of truth through the
-  bridge for now.
+- Python business data files are still the source for generated Apple model and
+  variant tables. Rust parses them as text at compile time; there is no Tauri
+  runtime Python bridge.
 
 ## Run The Tauri App
 
-Install the existing Python dependencies first, because PDF generation still
-uses the temporary Python bridge:
+Install and run Tauri:
 
 ```bash
 cd /Users/dwenn/Documents/dev/iPhoneLabelPrinter
-python3.12 -m venv .venv
-source .venv/bin/activate
-pip install -r requirements.txt
-```
-
-Then install and run Tauri:
-
-```bash
 npm install
 npm run tauri:dev
-```
-
-If the bridge must use a specific Python interpreter:
-
-```bash
-IPHONE_LABEL_PRINTER_PYTHON=/absolute/path/to/python npm run tauri:dev
 ```
 
 ## Verification Commands
@@ -141,11 +121,9 @@ npm run tauri:build
 
 1. Add Rust tests around mocked libimobiledevice command output for the full
    `read_device_info` path.
-2. Port label PDF generation to Rust or keep the Python bridge intentionally for
-   rendering if byte-identical labels matter more than removing Python.
-3. Add calibration label, cleanup, history export, and reprint selected history
-   row to the Tauri UI.
-4. Decide whether Tauri should replace or coexist with the current GitHub
+2. Convert generated Python business data files to JSON or Rust generated data
+   if the legacy Python app is removed.
+3. Decide whether Tauri should replace or coexist with the current GitHub
    Releases/PyInstaller updater.
-5. Add Windows CI for `npm run tauri:build` once packaging resources and signing
+4. Add Windows CI for `npm run tauri:build` once packaging resources and signing
    expectations are decided.

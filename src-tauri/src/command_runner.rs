@@ -22,46 +22,6 @@ pub fn bundled_windows_bin_dir() -> PathBuf {
     project_root().join("assets").join("bin").join("win32")
 }
 
-pub fn python_bridge_path() -> PathBuf {
-    let candidates = [
-        project_root().join("tauri_bridge.py"),
-        env::current_dir()
-            .unwrap_or_else(|_| project_root())
-            .join("tauri_bridge.py"),
-    ];
-    for candidate in candidates {
-        if candidate.is_file() {
-            return candidate;
-        }
-    }
-
-    if let Ok(exe) = env::current_exe() {
-        if let Some(parent) = exe.parent() {
-            let runtime_candidates = [
-                parent.join("tauri_bridge.py"),
-                parent.join("..").join("Resources").join("tauri_bridge.py"),
-                parent
-                    .join("..")
-                    .join("Resources")
-                    .join("_up_")
-                    .join("tauri_bridge.py"),
-                parent.join("resources").join("tauri_bridge.py"),
-                parent
-                    .join("resources")
-                    .join("_up_")
-                    .join("tauri_bridge.py"),
-            ];
-            for candidate in runtime_candidates {
-                if candidate.is_file() {
-                    return candidate;
-                }
-            }
-        }
-    }
-
-    project_root().join("tauri_bridge.py")
-}
-
 pub fn resolve_tool(name: &str) -> Option<PathBuf> {
     if cfg!(windows) {
         let suffix = if name.to_ascii_lowercase().ends_with(".exe") {

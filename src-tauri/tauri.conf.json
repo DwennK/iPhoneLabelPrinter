@@ -28,11 +28,7 @@
     "active": true,
     "targets": "all",
     "resources": [
-      "../assets/bin/win32/*",
-      "../history.py",
-      "../label_generator.py",
-      "../utils.py",
-      "../tauri_bridge.py"
+      "../assets/bin/win32"
     ]
   }
 }

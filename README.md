@@ -134,9 +134,9 @@ npm run tauri:dev
 
 The Rust backend already scans devices, reads iPhone/iPad metadata through
 libimobiledevice CLI tools, resolves the existing local model/variant data,
-lists printers, prints through CUPS/SumatraPDF, and reads history. PDF rendering
-is intentionally still bridged to the existing Python `label_generator.py` so
-thermal label output stays unchanged during the migration.
+generates thermal label PDFs, lists printers, prints through CUPS/SumatraPDF,
+and reads/writes history. The old Python/PySide app remains in the repository
+for now, but the Tauri app no longer needs Python at runtime for labels.
 
 Detailed scope, run notes, and remaining work are in
 [`docs/tauri-migration.md`](docs/tauri-migration.md).
