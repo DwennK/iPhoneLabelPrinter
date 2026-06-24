@@ -248,26 +248,50 @@ async function loadEnvironment() {
 }
 
 function render() {
+  const activeTitle = activeTabTitle(state.activeTab);
+  const effective = effectiveLabelSize();
   app.innerHTML = `
     <main class="shell">
-      <header class="topbar">
-        <div>
-          <h1>iPhoneLabelPrinter</h1>
-          <p class="status-line">${escapeHtml(state.status)}</p>
+      <aside class="app-rail" aria-label="Primary navigation">
+        <div class="brand-lockup">
+          <div class="brand-mark">iLP</div>
+          <div>
+            <strong>iPhoneLabelPrinter</strong>
+            <span>Repair desk</span>
+          </div>
         </div>
-        <div class="top-actions">
+        <nav class="top-actions">
           ${tabButton("label", "Label")}
           ${tabButton("history", "History")}
           ${tabButton("settings", "Settings")}
-        </div>
-      </header>
-      ${state.activeTab === "label" ? labelTab() : ""}
-      ${state.activeTab === "history" ? historyTab() : ""}
-      ${state.activeTab === "settings" ? settingsTab() : ""}
+        </nav>
+      </aside>
+      <section class="app-main">
+        <header class="topbar">
+          <div>
+            <p class="eyebrow">${activeTitle}</p>
+            <h1>${activeTitle}</h1>
+            <p class="status-line"><span class="status-dot ${state.busy ? "is-busy" : ""}"></span>${escapeHtml(state.status)}</p>
+          </div>
+          <div class="header-meta" aria-label="Current setup">
+            <span>${effective.width} x ${effective.height} mm</span>
+            <span>${state.printers.length || 0} printer${state.printers.length === 1 ? "" : "s"}</span>
+          </div>
+        </header>
+        ${state.activeTab === "label" ? labelTab() : ""}
+        ${state.activeTab === "history" ? historyTab() : ""}
+        ${state.activeTab === "settings" ? settingsTab() : ""}
+      </section>
     </main>
   `;
   attachEvents();
   updateAlerts();
+}
+
+function activeTabTitle(tab: TabKey): string {
+  if (tab === "history") return "History";
+  if (tab === "settings") return "Settings";
+  return "Label workspace";
 }
 
 function tabButton(tab: TabKey, label: string): string {
@@ -281,7 +305,7 @@ function labelTab(): string {
     <section class="workspace label-workspace">
       <section class="panel connection-panel">
         <div class="panel-heading">
-          <h2>Connection</h2>
+          <h2>Device connection</h2>
           <button class="primary" data-action="scan" type="button" ${disabledIfBusy()}>Scan Device</button>
         </div>
         <p class="muted">${escapeHtml(state.status)}</p>
@@ -289,7 +313,7 @@ function labelTab(): string {
       </section>
 
       <section class="panel checks-panel">
-        <h2>Checks</h2>
+        <h2>Readiness checks</h2>
         <div id="alerts" class="alerts"></div>
       </section>
 
@@ -316,7 +340,7 @@ function labelTab(): string {
 
       <aside class="panel print-panel">
         <div class="panel-heading">
-          <h2>Label</h2>
+          <h2>Print queue</h2>
           <span class="size-pill">${effective.width} x ${effective.height} mm</span>
         </div>
         <dl class="label-summary">
