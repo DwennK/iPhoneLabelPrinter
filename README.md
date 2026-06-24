@@ -79,6 +79,17 @@ cd .. && npm run tauri:build
 
 The Tauri bundle includes the Windows binaries from `assets/bin/win32`.
 
+## Release
+
+Signed updater artifacts are built by `.github/workflows/release.yml` when a
+`v*` tag is pushed or the workflow is run manually. The workflow creates a draft
+GitHub Release with Tauri bundles, signatures, and `latest.json` for the in-app
+updater.
+
+Before publishing a draft release, run the hardware checklist in
+`docs/release-validation.md`. The updater signing private key is intentionally
+not committed; add it to the GitHub secret `TAURI_SIGNING_PRIVATE_KEY`.
+
 ## Project Structure
 
 ```text
@@ -87,7 +98,8 @@ generated_labels/        Dev-mode generated PDFs
 src/                     TypeScript frontend
 src-tauri/src/           Rust backend
 src-tauri/data/          Local Apple model, color, and variant data
-docs/tauri-migration.md  Migration status and remaining release work
+docs/release-validation.md Hardware release checklist
+docs/tauri-migration.md  Migration status and release notes
 ```
 
 In dev builds, generated PDFs and `label_history.csv` are written at the repo
@@ -97,9 +109,9 @@ that location.
 
 ## Remaining Release Work
 
-- Configure a Tauri updater or replacement GitHub release workflow.
-- Validate the packaged app on the shop Windows and macOS machines with real
+- Validate each draft release on the shop Windows and macOS machines with real
   devices and the thermal printer.
 - Decide whether to add a JSON refresh pipeline for the Apple model/variant
   data now stored in `src-tauri/data`.
-- Add signing/notarization if the app is distributed beyond internal use.
+- Add platform code signing/notarization if the app is distributed beyond
+  internal use.

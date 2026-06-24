@@ -1,5 +1,7 @@
 import { invoke } from "@tauri-apps/api/core";
 import { openPath } from "@tauri-apps/plugin-opener";
+import { relaunch } from "@tauri-apps/plugin-process";
+import { check } from "@tauri-apps/plugin-updater";
 import "./styles.css";
 
 type TabKey = "label" | "history" | "settings";
@@ -457,6 +459,7 @@ function settingsTab(): string {
         <div class="button-row">
           <button class="secondary" data-action="cleanup-labels" type="button" ${disabledIfBusy()}>Clean Now</button>
           <button class="secondary" data-action="print-test-label" type="button" ${disabledIfBusy()}>Print Test Label</button>
+          <button class="secondary" data-action="check-updates" type="button" ${disabledIfBusy()}>Check Updates</button>
           <button class="secondary" data-action="reset-settings" type="button">Reset Label Size</button>
           <button class="primary" data-action="save-settings" type="button">Save Settings</button>
         </div>
@@ -500,6 +503,7 @@ function attachEvents() {
   app.querySelector<HTMLButtonElement>('[data-action="save-settings"]')?.addEventListener("click", saveSettingsFromForm);
   app.querySelector<HTMLButtonElement>('[data-action="reset-settings"]')?.addEventListener("click", resetSettings);
   app.querySelector<HTMLButtonElement>('[data-action="cleanup-labels"]')?.addEventListener("click", cleanupGeneratedLabels);
+  app.querySelector<HTMLButtonElement>('[data-action="check-updates"]')?.addEventListener("click", checkForUpdates);
 
   app.querySelector<HTMLSelectElement>("[data-device]")?.addEventListener("change", (event) => {
     state.selectedUdid = (event.target as HTMLSelectElement).value;
@@ -756,6 +760,31 @@ async function cleanupGeneratedLabels() {
       request: { retentionDays: Math.round(state.settings.labelRetentionDays) },
     });
     state.status = `Deleted ${response.deletedPaths.length} old label PDF(s).`;
+  });
+}
+
+async function checkForUpdates() {
+  await withBusy("Checking for updates...", async () => {
+    const update = await check({ timeout: 30_000 });
+    if (!update) {
+      state.status = "No update available.";
+      render();
+      return;
+    }
+
+    state.status = `Installing iPhoneLabelPrinter ${update.version}...`;
+    render();
+    await update.downloadAndInstall((event) => {
+      if (event.event === "Started") {
+        state.status = "Downloading update...";
+      } else if (event.event === "Finished") {
+        state.status = "Installing update...";
+      }
+      render();
+    });
+    state.status = "Update installed. Relaunching...";
+    render();
+    await relaunch();
   });
 }
 

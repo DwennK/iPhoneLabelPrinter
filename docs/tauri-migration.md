@@ -81,11 +81,23 @@ cd src-tauri && cargo test
 cd .. && npm run tauri:build
 ```
 
+## Release
+
+- The Tauri updater plugin is configured with the public key in
+  `src-tauri/tauri.conf.json`.
+- `.github/workflows/release.yml` validates the project, builds macOS, Windows,
+  and Linux bundles, signs updater artifacts, uploads `latest.json`, and creates
+  a draft GitHub Release.
+- `docs/release-validation.md` contains the manual Windows/macOS hardware
+  checklist required before publishing a draft release.
+- The signing private key lives outside the repo at
+  `/Users/dwenn/.tauri/iphone-label-printer-updater.key` and must be stored as
+  GitHub secret `TAURI_SIGNING_PRIVATE_KEY`.
+
 ## Remaining Work
 
-- Configure a Tauri updater or a new GitHub release workflow.
-- Validate Windows packaging and printing on the target shop machine.
-- Validate macOS packaging on a target Mac with a real USB device.
+- Validate each draft release on the target Windows shop machine.
+- Validate each draft release on a target Mac with a real USB device.
 - Add a maintained JSON refresh command if Apple model/variant data needs
   regular updates.
 - Add code signing and notarization if distribution expands beyond internal

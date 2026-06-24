@@ -30,5 +30,16 @@
     "resources": [
       "../assets/bin/win32"
     ]
+  },
+  "plugins": {
+    "updater": {
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDRBRkUwREUxN0FDRDc3NDYKUldSR2Q4MTY0UTMrU2w5QjRCdWc4V3RLajdXT0Yyc1h4Z2pZS2Fma3J4a3NpdmxpOVFZcFo0NU4K",
+      "endpoints": [
+        "https://github.com/DwennK/iPhoneLabelPrinter/releases/latest/download/latest.json"
+      ],
+      "windows": {
+        "installMode": "passive"
+      }
+    }
   }
 }
