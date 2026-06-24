@@ -1,129 +1,92 @@
 # Tauri Migration Notes
 
-This migration is additive. The existing Python/PySide app, PyInstaller release
-workflow, launch scripts, generated data files, and vendored Windows binaries
-remain in place until the Tauri build is validated on the shop Windows/macOS
-machines.
+The migration is now the active application path. The legacy
+Python/PySide/PyInstaller runtime, launch scripts, Python tests, and Python
+release workflow were removed after the Rust/Tauri path covered the user
+workflow.
 
-## Current Python Surfaces To Preserve
+## Preserved User Workflow
 
-- `app.py`: PySide desktop workflow with Label, History, and Settings tabs. It
-  owns scan state, editable fields, printer selection, generated PDF status,
-  alerts, settings, history table, and updater dialogs.
-- `iphone_reader.py`: libimobiledevice CLI orchestration. It detects UDIDs,
-  reads `ideviceinfo`, maps trust/lockdown failures to operator-facing messages,
-  resolves storage, IMEI, color, variant, and battery health/cycles.
-- `label_generator.py`: ReportLab PDF rendering for 62 x 40 mm thermal labels,
-  QR payloads, calibration labels, filename generation, and cleanup.
-- `printer.py`, `_printer_cups.py`, `_printer_win32.py`: platform-specific
-  printer discovery and print submission. macOS/Linux use CUPS; Windows uses
-  SumatraPDF and the OS printer driver paper size.
-- `history.py`: stable CSV schema for generated/printed labels.
-- `model_mapping.py`, `variant_resolver.py`, `variant_data.py`,
-  `device_catalog.py`: local business data for marketing names, color options,
-  and model-number-to-color/storage resolution.
-- `updater.py`: GitHub Releases self-update for the packaged Python app.
+- Connect an iPhone or iPad by USB.
+- Scan devices and choose a connected device when more than one is present.
+- Read model, storage, color, IMEI, serial number, device name, iOS version,
+  battery health, and battery cycle count where available.
+- Manually correct missing or unreliable fields before printing.
+- Generate a thermal PDF label.
+- Open the generated PDF when needed.
+- Select a printer and print the label.
+- Review history, reprint a previous label, and export history.
+- Generate and print a calibration label.
 
-## Added Tauri Structure
+## Rust Backend
 
-- `package.json`, `vite.config.ts`, `tsconfig.json`, `index.html`: Vite +
-  TypeScript frontend shell.
-- `src/`: dense utility UI for scan, editable fields, PDF generation, printer
-  selection, print, history, and settings.
-- `src-tauri/`: Tauri 2 backend in Rust.
+Implemented Tauri commands:
 
-## Rust Backend Status
+- `scan_devices`
+- `read_device_info`
+- `color_options`
+- `list_printers`
+- `generate_label`
+- `generate_calibration_label`
+- `cleanup_generated_labels`
+- `print_label`
+- `read_history`
+- `export_history`
+- `environment_info`
 
-Implemented:
+Platform behavior:
 
-- Resolves vendored Windows CLI tools from `assets/bin/win32` before PATH.
-- Falls back to PATH on macOS/Linux for `idevice_id`, `ideviceinfo`,
-  `idevicediagnostics`, `lpstat`, and `lp`.
-- Exposes Tauri commands:
-  - `scan_devices`
-  - `read_device_info`
-  - `color_options`
-  - `list_printers`
-  - `generate_label`
-  - `generate_calibration_label`
-  - `cleanup_generated_labels`
-  - `print_label`
-  - `read_history`
-  - `export_history`
-  - `environment_info`
-- Ports the core iPhone read flow to Rust:
-  - `idevice_id -l`
-  - broad `ideviceinfo`
-  - disk capacity lookup
-  - IMEI fallback keys
-  - battery diagnostics XML integer extraction
-  - storage rounding
-  - operator-facing connection errors
-- Reuses existing Python business data by parsing:
-  - `device_catalog.py`
-  - `model_mapping.py`
-  - `variant_data.py`
-  - `variant_resolver.py`
-- Lists printers with CUPS on macOS/Linux and PowerShell/CIM on Windows.
-- Prints with CUPS on macOS/Linux and SumatraPDF on Windows.
-- Generates normal and calibration label PDFs in Rust with vector QR codes and
-  the same thermal page size defaults.
-- Reads and writes existing `label_history.csv` from Rust, including generated
-  rows, printed rows, and CSV export.
+- Windows resolves vendored tools from `assets/bin/win32` before falling back
+  to `PATH`.
+- macOS and Linux use system `libimobiledevice` and CUPS commands from `PATH`.
+- Windows printing uses the vendored `SumatraPDF.exe`.
+- macOS/Linux printing uses `lp` with the configured label size.
 
-## Frontend Status
+Data behavior:
 
-Implemented:
+- Marketing model names live in
+  `src-tauri/data/product_type_marketing_names.json`.
+- Product color choices live in `src-tauri/data/product_color_options.json`.
+- Apple order-number color/storage variants live in
+  `src-tauri/data/model_number_variants.json`.
+- Product/color-code fallbacks live in
+  `src-tauri/data/color_code_variants.json`.
+- Runtime Python is no longer required.
 
-- Label workspace with scan, multi-device selection, editable fields, alerts,
-  generated PDF path, printer selector, generate, print, and open PDF.
-- History workspace with search, refresh, selectable rows, reprint selected,
-  open selected PDF, and export CSV.
-- Settings workspace for width, height, orientation, generated PDF cleanup, and
-  calibration label printing.
-- Operational layout based on the existing PySide tabs, not a landing page.
+Storage behavior:
 
-Not yet migrated:
+- Dev builds write generated PDFs and `label_history.csv` at the repo root.
+- Release builds write generated PDFs and `label_history.csv` in the user's
+  application data directory.
+- `IPHONE_LABEL_PRINTER_DATA_DIR` can override the data directory for testing
+  or shop-specific deployment.
 
-- Live PDF preview before generation. The current Tauri UI shows the generated
-  path and can open the PDF.
-- GitHub Releases auto-update flow.
-- Python business data files are still the source for generated Apple model and
-  variant tables. Rust parses them as text at compile time; there is no Tauri
-  runtime Python bridge.
+## Frontend
 
-## Run The Tauri App
+The frontend is a dense utility interface, not a landing page:
 
-Install and run Tauri:
+- Label workspace for scan, field edits, generation, printer selection, print,
+  and PDF opening.
+- History workspace for search, refresh, reprint, open PDF, and export.
+- Settings workspace for label size, orientation, retention cleanup,
+  calibration labels, and system paths.
+
+## Verification
+
+Run:
 
 ```bash
-cd /Users/dwenn/Documents/dev/iPhoneLabelPrinter
-npm install
-npm run tauri:dev
-```
-
-## Verification Commands
-
-```bash
-python -m unittest discover -s tests
 npm run build
-cd src-tauri
-cargo test
+cd src-tauri && cargo test
+cd .. && npm run tauri:build
 ```
 
-For a full desktop package check:
+## Remaining Work
 
-```bash
-npm run tauri:build
-```
-
-## Next Migration Steps
-
-1. Add Rust tests around mocked libimobiledevice command output for the full
-   `read_device_info` path.
-2. Convert generated Python business data files to JSON or Rust generated data
-   if the legacy Python app is removed.
-3. Decide whether Tauri should replace or coexist with the current GitHub
-   Releases/PyInstaller updater.
-4. Add Windows CI for `npm run tauri:build` once packaging resources and signing
-   expectations are decided.
+- Configure a Tauri updater or a new GitHub release workflow.
+- Validate Windows packaging and printing on the target shop machine.
+- Validate macOS packaging on a target Mac with a real USB device.
+- Add a maintained JSON refresh command if Apple model/variant data needs
+  regular updates.
+- Add code signing and notarization if distribution expands beyond internal
+  usage.
