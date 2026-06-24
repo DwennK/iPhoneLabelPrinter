@@ -1,4 +1,4 @@
-use crate::command_runner::project_root;
+use crate::command_runner::data_root;
 use crate::error::{AppError, AppResult};
 use crate::types::{ExportHistoryRequest, ExportHistoryResponse, HistoryEntry, IPhoneInfo};
 use chrono::{DateTime, Local};
@@ -25,7 +25,7 @@ const HISTORY_FIELDS: &[&str] = &[
 ];
 
 pub fn history_path() -> PathBuf {
-    project_root().join("label_history.csv")
+    data_root().join("label_history.csv")
 }
 
 pub fn read_history() -> AppResult<Vec<HistoryEntry>> {
@@ -84,7 +84,7 @@ pub fn export_history(request: &ExportHistoryRequest) -> AppResult<ExportHistory
         .as_deref()
         .filter(|value| !value.trim().is_empty())
         .map(PathBuf::from)
-        .unwrap_or_else(|| project_root().join("label_history_export.csv"));
+        .unwrap_or_else(|| data_root().join("label_history_export.csv"));
     if let Some(parent) = destination.parent() {
         fs::create_dir_all(parent)?;
     }
@@ -219,7 +219,7 @@ fn normalized_path(path: &Path) -> String {
         path.to_path_buf()
     } else {
         std::env::current_dir()
-            .unwrap_or_else(|_| project_root())
+            .unwrap_or_else(|_| data_root())
             .join(path)
     };
     absolute
@@ -242,7 +242,7 @@ mod tests {
     use super::*;
 
     #[test]
-    fn format_mm_matches_python_style() {
+    fn format_mm_omits_trailing_decimal_for_whole_numbers() {
         assert_eq!(format_mm(62.0), "62");
         assert_eq!(format_mm(40.5), "40.5");
     }

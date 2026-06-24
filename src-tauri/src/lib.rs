@@ -90,6 +90,7 @@ async fn export_history(request: ExportHistoryRequest) -> AppResult<ExportHistor
 fn environment_info() -> EnvironmentInfo {
     EnvironmentInfo {
         project_root: command_runner::project_root().display().to_string(),
+        data_root: command_runner::data_root().display().to_string(),
         bundled_windows_bin_dir: command_runner::bundled_windows_bin_dir()
             .display()
             .to_string(),

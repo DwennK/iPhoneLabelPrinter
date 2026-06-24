@@ -1,0 +1,881 @@
+{
+  "iPad1,1": [
+    "Black"
+  ],
+  "iPad11,1": [
+    "Gold",
+    "Silver",
+    "Space Gray"
+  ],
+  "iPad11,2": [
+    "Gold",
+    "Silver",
+    "Space Gray"
+  ],
+  "iPad11,3": [
+    "Gold",
+    "Silver",
+    "Space Gray"
+  ],
+  "iPad11,4": [
+    "Gold",
+    "Silver",
+    "Space Gray"
+  ],
+  "iPad11,6": [
+    "Gold",
+    "Silver",
+    "Space Gray"
+  ],
+  "iPad11,7": [
+    "Gold",
+    "Silver",
+    "Space Gray"
+  ],
+  "iPad12,1": [
+    "Silver",
+    "Space Gray"
+  ],
+  "iPad12,2": [
+    "Silver",
+    "Space Gray"
+  ],
+  "iPad13,1": [
+    "Green",
+    "Rose Gold",
+    "Silver",
+    "Sky Blue",
+    "Space Gray"
+  ],
+  "iPad13,10": [
+    "Silver",
+    "Space Gray"
+  ],
+  "iPad13,11": [
+    "Silver",
+    "Space Gray"
+  ],
+  "iPad13,16": [
+    "Blue",
+    "Pink",
+    "Purple",
+    "Space Gray",
+    "Starlight"
+  ],
+  "iPad13,17": [
+    "Blue",
+    "Pink",
+    "Purple",
+    "Space Gray",
+    "Starlight"
+  ],
+  "iPad13,18": [
+    "Blue",
+    "Pink",
+    "Silver",
+    "Yellow"
+  ],
+  "iPad13,19": [
+    "Blue",
+    "Pink",
+    "Silver",
+    "Yellow"
+  ],
+  "iPad13,2": [
+    "Green",
+    "Rose Gold",
+    "Silver",
+    "Sky Blue",
+    "Space Gray"
+  ],
+  "iPad13,4": [
+    "Silver",
+    "Space Gray"
+  ],
+  "iPad13,5": [
+    "Silver",
+    "Space Gray"
+  ],
+  "iPad13,6": [
+    "Silver",
+    "Space Gray"
+  ],
+  "iPad13,7": [
+    "Silver",
+    "Space Gray"
+  ],
+  "iPad13,8": [
+    "Silver",
+    "Space Gray"
+  ],
+  "iPad13,9": [
+    "Silver",
+    "Space Gray"
+  ],
+  "iPad14,1": [
+    "Pink",
+    "Purple",
+    "Space Gray",
+    "Starlight"
+  ],
+  "iPad14,10": [
+    "Blue",
+    "Purple",
+    "Space Gray",
+    "Starlight"
+  ],
+  "iPad14,11": [
+    "Blue",
+    "Purple",
+    "Space Gray",
+    "Starlight"
+  ],
+  "iPad14,2": [
+    "Pink",
+    "Purple",
+    "Space Gray",
+    "Starlight"
+  ],
+  "iPad14,3": [
+    "Silver",
+    "Space Gray"
+  ],
+  "iPad14,4": [
+    "Silver",
+    "Space Gray"
+  ],
+  "iPad14,5": [
+    "Silver",
+    "Space Gray"
+  ],
+  "iPad14,6": [
+    "Silver",
+    "Space Gray"
+  ],
+  "iPad14,8": [
+    "Blue",
+    "Purple",
+    "Space Gray",
+    "Starlight"
+  ],
+  "iPad14,9": [
+    "Blue",
+    "Purple",
+    "Space Gray",
+    "Starlight"
+  ],
+  "iPad15,3": [
+    "Blue",
+    "Purple",
+    "Space Gray",
+    "Starlight"
+  ],
+  "iPad15,4": [
+    "Blue",
+    "Purple",
+    "Space Gray",
+    "Starlight"
+  ],
+  "iPad15,5": [
+    "Blue",
+    "Purple",
+    "Space Gray",
+    "Starlight"
+  ],
+  "iPad15,6": [
+    "Blue",
+    "Purple",
+    "Space Gray",
+    "Starlight"
+  ],
+  "iPad15,7": [
+    "Blue",
+    "Pink",
+    "Silver",
+    "Yellow"
+  ],
+  "iPad15,8": [
+    "Blue",
+    "Pink",
+    "Silver",
+    "Yellow"
+  ],
+  "iPad16,1": [
+    "Blue",
+    "Purple",
+    "Space Gray",
+    "Starlight"
+  ],
+  "iPad16,10": [
+    "Blue",
+    "Purple",
+    "Space Gray",
+    "Starlight"
+  ],
+  "iPad16,11": [
+    "Blue",
+    "Purple",
+    "Space Gray",
+    "Starlight"
+  ],
+  "iPad16,2": [
+    "Blue",
+    "Purple",
+    "Space Gray",
+    "Starlight"
+  ],
+  "iPad16,3": [
+    "Silver",
+    "Space Black"
+  ],
+  "iPad16,4": [
+    "Silver",
+    "Space Black"
+  ],
+  "iPad16,5": [
+    "Silver",
+    "Space Black"
+  ],
+  "iPad16,6": [
+    "Silver",
+    "Space Black"
+  ],
+  "iPad16,8": [
+    "Blue",
+    "Purple",
+    "Space Gray",
+    "Starlight"
+  ],
+  "iPad16,9": [
+    "Blue",
+    "Purple",
+    "Space Gray",
+    "Starlight"
+  ],
+  "iPad17,1": [
+    "Silver",
+    "Space Black"
+  ],
+  "iPad17,2": [
+    "Silver",
+    "Space Black"
+  ],
+  "iPad17,3": [
+    "Silver",
+    "Space Black"
+  ],
+  "iPad17,4": [
+    "Silver",
+    "Space Black"
+  ],
+  "iPad2,1": [
+    "Black",
+    "White"
+  ],
+  "iPad2,2": [
+    "Black",
+    "White"
+  ],
+  "iPad2,3": [
+    "Black",
+    "White"
+  ],
+  "iPad2,4": [
+    "Black",
+    "White"
+  ],
+  "iPad2,5": [
+    "Space Gray",
+    "White & Silver",
+    "Black & Slate"
+  ],
+  "iPad2,6": [
+    "Space Gray",
+    "White & Silver",
+    "Black & Slate"
+  ],
+  "iPad2,7": [
+    "Space Gray",
+    "White & Silver",
+    "Black & Slate"
+  ],
+  "iPad3,1": [
+    "Black",
+    "White"
+  ],
+  "iPad3,2": [
+    "Black",
+    "White"
+  ],
+  "iPad3,3": [
+    "Black",
+    "White"
+  ],
+  "iPad3,4": [
+    "Black",
+    "White"
+  ],
+  "iPad3,5": [
+    "Black",
+    "White"
+  ],
+  "iPad3,6": [
+    "Black",
+    "White"
+  ],
+  "iPad4,1": [
+    "Silver",
+    "Space Gray"
+  ],
+  "iPad4,2": [
+    "Silver",
+    "Space Gray"
+  ],
+  "iPad4,3": [
+    "Silver",
+    "Space Gray"
+  ],
+  "iPad4,4": [
+    "Silver",
+    "Space Gray"
+  ],
+  "iPad4,5": [
+    "Silver",
+    "Space Gray"
+  ],
+  "iPad4,6": [
+    "Silver",
+    "Space Gray"
+  ],
+  "iPad4,7": [
+    "Gold",
+    "Silver",
+    "Space Gray"
+  ],
+  "iPad4,8": [
+    "Gold",
+    "Silver",
+    "Space Gray"
+  ],
+  "iPad4,9": [
+    "Gold",
+    "Silver",
+    "Space Gray"
+  ],
+  "iPad5,1": [
+    "Gold",
+    "Silver",
+    "Space Gray"
+  ],
+  "iPad5,2": [
+    "Gold",
+    "Silver",
+    "Space Gray"
+  ],
+  "iPad5,3": [
+    "Gold",
+    "Silver",
+    "Space Gray"
+  ],
+  "iPad5,4": [
+    "Gold",
+    "Silver",
+    "Space Gray"
+  ],
+  "iPad6,11": [
+    "Gold",
+    "Silver",
+    "Space Gray"
+  ],
+  "iPad6,12": [
+    "Gold",
+    "Silver",
+    "Space Gray"
+  ],
+  "iPad6,3": [
+    "Gold",
+    "Rose Gold",
+    "Silver",
+    "Space Gray"
+  ],
+  "iPad6,4": [
+    "Gold",
+    "Rose Gold",
+    "Silver",
+    "Space Gray"
+  ],
+  "iPad6,7": [
+    "Gold",
+    "Silver",
+    "Space Gray"
+  ],
+  "iPad6,8": [
+    "Gold",
+    "Silver",
+    "Space Gray"
+  ],
+  "iPad7,1": [
+    "Gold",
+    "Silver",
+    "Space Gray"
+  ],
+  "iPad7,11": [
+    "Gold",
+    "Silver",
+    "Space Gray"
+  ],
+  "iPad7,12": [
+    "Gold",
+    "Silver",
+    "Space Gray"
+  ],
+  "iPad7,2": [
+    "Gold",
+    "Silver",
+    "Space Gray"
+  ],
+  "iPad7,3": [
+    "Gold",
+    "Rose Gold",
+    "Silver",
+    "Space Gray"
+  ],
+  "iPad7,4": [
+    "Gold",
+    "Rose Gold",
+    "Silver",
+    "Space Gray"
+  ],
+  "iPad7,5": [
+    "Gold",
+    "Silver",
+    "Space Gray"
+  ],
+  "iPad7,6": [
+    "Gold",
+    "Silver",
+    "Space Gray"
+  ],
+  "iPad8,1": [
+    "Silver",
+    "Space Gray"
+  ],
+  "iPad8,10": [
+    "Silver",
+    "Space Gray"
+  ],
+  "iPad8,11": [
+    "Silver",
+    "Space Gray"
+  ],
+  "iPad8,12": [
+    "Silver",
+    "Space Gray"
+  ],
+  "iPad8,2": [
+    "Silver",
+    "Space Gray"
+  ],
+  "iPad8,3": [
+    "Silver",
+    "Space Gray"
+  ],
+  "iPad8,4": [
+    "Silver",
+    "Space Gray"
+  ],
+  "iPad8,5": [
+    "Silver",
+    "Space Gray"
+  ],
+  "iPad8,6": [
+    "Silver",
+    "Space Gray"
+  ],
+  "iPad8,7": [
+    "Silver",
+    "Space Gray"
+  ],
+  "iPad8,8": [
+    "Silver",
+    "Space Gray"
+  ],
+  "iPad8,9": [
+    "Silver",
+    "Space Gray"
+  ],
+  "iPhone1,1": [
+    "Black"
+  ],
+  "iPhone1,2": [
+    "Black",
+    "White"
+  ],
+  "iPhone10,1": [
+    "(PRODUCT)RED",
+    "Gold",
+    "Silver",
+    "Space Gray"
+  ],
+  "iPhone10,2": [
+    "(PRODUCT)RED",
+    "Gold",
+    "Silver",
+    "Space Gray"
+  ],
+  "iPhone10,3": [
+    "Silver",
+    "Space Gray"
+  ],
+  "iPhone10,4": [
+    "(PRODUCT)RED",
+    "Gold",
+    "Silver",
+    "Space Gray"
+  ],
+  "iPhone10,5": [
+    "(PRODUCT)RED",
+    "Gold",
+    "Silver",
+    "Space Gray"
+  ],
+  "iPhone10,6": [
+    "Silver",
+    "Space Gray"
+  ],
+  "iPhone11,2": [
+    "Gold",
+    "Silver",
+    "Space Gray"
+  ],
+  "iPhone11,4": [
+    "Gold",
+    "Silver",
+    "Space Gray"
+  ],
+  "iPhone11,6": [
+    "Gold",
+    "Silver",
+    "Space Gray"
+  ],
+  "iPhone11,8": [
+    "(PRODUCT)RED",
+    "Black",
+    "Blue",
+    "Coral",
+    "White",
+    "Yellow"
+  ],
+  "iPhone12,1": [
+    "(PRODUCT)RED",
+    "Black",
+    "Green",
+    "Purple",
+    "White",
+    "Yellow"
+  ],
+  "iPhone12,3": [
+    "Gold",
+    "Midnight Green",
+    "Silver",
+    "Space Gray"
+  ],
+  "iPhone12,5": [
+    "Gold",
+    "Midnight Green",
+    "Silver",
+    "Space Gray"
+  ],
+  "iPhone12,8": [
+    "(PRODUCT)RED",
+    "Black",
+    "White"
+  ],
+  "iPhone13,1": [
+    "Purple",
+    "(PRODUCT)RED",
+    "Black",
+    "Blue",
+    "Green",
+    "White"
+  ],
+  "iPhone13,2": [
+    "Purple",
+    "(PRODUCT)RED",
+    "Black",
+    "Blue",
+    "Green",
+    "White"
+  ],
+  "iPhone13,3": [
+    "Gold",
+    "Graphite",
+    "Pacific Blue",
+    "Silver"
+  ],
+  "iPhone13,4": [
+    "Gold",
+    "Graphite",
+    "Pacific Blue",
+    "Silver"
+  ],
+  "iPhone14,2": [
+    "Alpine Green",
+    "Gold",
+    "Graphite",
+    "Sierra Blue",
+    "Silver"
+  ],
+  "iPhone14,3": [
+    "Alpine Green",
+    "Gold",
+    "Graphite",
+    "Sierra Blue",
+    "Silver"
+  ],
+  "iPhone14,4": [
+    "Green",
+    "(PRODUCT)RED",
+    "Blue",
+    "Midnight",
+    "Pink",
+    "Starlight"
+  ],
+  "iPhone14,5": [
+    "Green",
+    "(PRODUCT)RED",
+    "Blue",
+    "Midnight",
+    "Pink",
+    "Starlight"
+  ],
+  "iPhone14,6": [
+    "(PRODUCT)RED",
+    "Midnight",
+    "Starlight"
+  ],
+  "iPhone14,7": [
+    "Yellow",
+    "(PRODUCT)RED",
+    "Blue",
+    "Midnight",
+    "Purple",
+    "Starlight"
+  ],
+  "iPhone14,8": [
+    "Yellow",
+    "(PRODUCT)RED",
+    "Blue",
+    "Midnight",
+    "Purple",
+    "Starlight"
+  ],
+  "iPhone15,2": [
+    "Deep Purple",
+    "Gold",
+    "Silver",
+    "Space Black"
+  ],
+  "iPhone15,3": [
+    "Deep Purple",
+    "Gold",
+    "Silver",
+    "Space Black"
+  ],
+  "iPhone15,4": [
+    "Black",
+    "Blue",
+    "Green",
+    "Pink",
+    "Yellow"
+  ],
+  "iPhone15,5": [
+    "Black",
+    "Blue",
+    "Green",
+    "Pink",
+    "Yellow"
+  ],
+  "iPhone16,1": [
+    "Black Titanium",
+    "Blue Titanium",
+    "Natural Titanium",
+    "White Titanium"
+  ],
+  "iPhone16,2": [
+    "Black Titanium",
+    "Blue Titanium",
+    "Natural Titanium",
+    "White Titanium"
+  ],
+  "iPhone17,1": [
+    "Black Titanium",
+    "Desert Titanium",
+    "Natural Titanium",
+    "White Titanium"
+  ],
+  "iPhone17,2": [
+    "Black Titanium",
+    "Desert Titanium",
+    "Natural Titanium",
+    "White Titanium"
+  ],
+  "iPhone17,3": [
+    "Black",
+    "Pink",
+    "Teal",
+    "Ultramarine",
+    "White"
+  ],
+  "iPhone17,4": [
+    "Black",
+    "Pink",
+    "Teal",
+    "Ultramarine",
+    "White"
+  ],
+  "iPhone17,5": [
+    "Black",
+    "White"
+  ],
+  "iPhone18,1": [
+    "Cosmic Orange",
+    "Deep Blue",
+    "Silver"
+  ],
+  "iPhone18,2": [
+    "Cosmic Orange",
+    "Deep Blue",
+    "Silver"
+  ],
+  "iPhone18,3": [
+    "Black",
+    "Lavender",
+    "Mist Blue",
+    "Sage",
+    "White"
+  ],
+  "iPhone18,4": [
+    "Cloud White",
+    "Light Gold",
+    "Sky Blue",
+    "Space Black"
+  ],
+  "iPhone18,5": [
+    "Black",
+    "Soft Pink",
+    "White"
+  ],
+  "iPhone2,1": [
+    "Black",
+    "White"
+  ],
+  "iPhone3,1": [
+    "White",
+    "Black"
+  ],
+  "iPhone3,2": [
+    "Black",
+    "White"
+  ],
+  "iPhone3,3": [
+    "White",
+    "Black"
+  ],
+  "iPhone4,1": [
+    "Black",
+    "White"
+  ],
+  "iPhone5,1": [
+    "Black & Slate",
+    "White & Silver"
+  ],
+  "iPhone5,2": [
+    "Black & Slate",
+    "White & Silver"
+  ],
+  "iPhone5,3": [
+    "Blue",
+    "Green",
+    "Pink",
+    "White",
+    "Yellow"
+  ],
+  "iPhone5,4": [
+    "Blue",
+    "Green",
+    "Pink",
+    "White",
+    "Yellow"
+  ],
+  "iPhone6,1": [
+    "Silver",
+    "Space Gray",
+    "Gold"
+  ],
+  "iPhone6,2": [
+    "Silver",
+    "Space Gray",
+    "Gold"
+  ],
+  "iPhone7,1": [
+    "Silver",
+    "Space Gray",
+    "Gold"
+  ],
+  "iPhone7,2": [
+    "Silver",
+    "Space Gray",
+    "Gold"
+  ],
+  "iPhone8,1": [
+    "Gold",
+    "Rose Gold",
+    "Silver",
+    "Space Gray"
+  ],
+  "iPhone8,2": [
+    "Gold",
+    "Rose Gold",
+    "Silver",
+    "Space Gray"
+  ],
+  "iPhone8,4": [
+    "Gold",
+    "Rose Gold",
+    "Silver",
+    "Space Gray"
+  ],
+  "iPhone9,1": [
+    "(PRODUCT)RED",
+    "Black",
+    "Gold",
+    "Jet Black",
+    "Rose Gold",
+    "Silver"
+  ],
+  "iPhone9,2": [
+    "(PRODUCT)RED",
+    "Black",
+    "Gold",
+    "Jet Black",
+    "Rose Gold",
+    "Silver"
+  ],
+  "iPhone9,3": [
+    "(PRODUCT)RED",
+    "Black",
+    "Gold",
+    "Jet Black",
+    "Rose Gold",
+    "Silver"
+  ],
+  "iPhone9,4": [
+    "(PRODUCT)RED",
+    "Black",
+    "Gold",
+    "Jet Black",
+    "Rose Gold",
+    "Silver"
+  ]
+}

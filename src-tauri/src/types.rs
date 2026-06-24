@@ -121,6 +121,7 @@ pub struct ExportHistoryResponse {
 #[serde(rename_all = "camelCase")]
 pub struct EnvironmentInfo {
     pub project_root: String,
+    pub data_root: String,
     pub bundled_windows_bin_dir: String,
     pub generated_labels_dir: String,
     pub history_path: String,

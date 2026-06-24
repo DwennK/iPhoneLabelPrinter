@@ -81,6 +81,7 @@ interface HistoryEntry {
 
 interface EnvironmentInfo {
   projectRoot: string;
+  dataRoot: string;
   bundledWindowsBinDir: string;
   generatedLabelsDir: string;
   historyPath: string;
@@ -461,14 +462,14 @@ function settingsTab(): string {
         </div>
       </section>
       <section class="panel">
-        <h2>Migration Notes</h2>
+        <h2>System Paths</h2>
         <dl class="env-list">
           <div><dt>Project root</dt><dd>${escapeHtml(state.environment?.projectRoot || "Loading...")}</dd></div>
+          <div><dt>Data folder</dt><dd>${escapeHtml(state.environment?.dataRoot || "Loading...")}</dd></div>
           <div><dt>Windows binaries</dt><dd>${escapeHtml(state.environment?.bundledWindowsBinDir || "Loading...")}</dd></div>
           <div><dt>Generated PDFs</dt><dd>${escapeHtml(state.environment?.generatedLabelsDir || "Loading...")}</dd></div>
           <div><dt>History CSV</dt><dd>${escapeHtml(state.environment?.historyPath || "Loading...")}</dd></div>
         </dl>
-        <p class="muted">The Tauri backend now scans devices, generates PDFs, prints labels, and writes history from Rust.</p>
       </section>
     </section>
   `;

@@ -1,4 +1,4 @@
-use crate::command_runner::project_root;
+use crate::command_runner::data_root;
 use crate::error::{AppError, AppResult};
 use crate::history;
 use crate::types::{
@@ -19,7 +19,7 @@ const SECONDS_PER_DAY: u64 = 24 * 60 * 60;
 const PT_PER_MM: f64 = 72.0 / 25.4;
 
 pub fn generated_labels_dir() -> PathBuf {
-    project_root().join("generated_labels")
+    data_root().join("generated_labels")
 }
 
 pub fn generate_label(request: &GenerateLabelRequest) -> AppResult<GenerateLabelResponse> {

@@ -5,6 +5,8 @@ use std::process::{Command, Stdio};
 use std::thread;
 use std::time::{Duration, Instant};
 
+const APP_DATA_DIR_NAME: &str = "iPhoneLabelPrinter";
+
 #[derive(Debug, Clone)]
 pub struct CommandOutput {
     pub stdout: String,
@@ -20,6 +22,16 @@ pub fn project_root() -> PathBuf {
 
 pub fn bundled_windows_bin_dir() -> PathBuf {
     project_root().join("assets").join("bin").join("win32")
+}
+
+pub fn data_root() -> PathBuf {
+    if let Some(override_dir) = env::var_os("IPHONE_LABEL_PRINTER_DATA_DIR") {
+        return PathBuf::from(override_dir);
+    }
+    if cfg!(debug_assertions) {
+        return project_root();
+    }
+    platform_data_root().unwrap_or_else(project_root)
 }
 
 pub fn resolve_tool(name: &str) -> Option<PathBuf> {
@@ -188,6 +200,31 @@ fn find_on_path(name: &str) -> Option<PathBuf> {
     }
 
     None
+}
+
+fn platform_data_root() -> Option<PathBuf> {
+    if cfg!(windows) {
+        return env::var_os("APPDATA")
+            .map(PathBuf::from)
+            .map(|path| path.join(APP_DATA_DIR_NAME));
+    }
+
+    if cfg!(target_os = "macos") {
+        return env::var_os("HOME").map(PathBuf::from).map(|path| {
+            path.join("Library")
+                .join("Application Support")
+                .join(APP_DATA_DIR_NAME)
+        });
+    }
+
+    env::var_os("XDG_DATA_HOME")
+        .map(PathBuf::from)
+        .or_else(|| {
+            env::var_os("HOME")
+                .map(PathBuf::from)
+                .map(|path| path.join(".local").join("share"))
+        })
+        .map(|path| path.join(APP_DATA_DIR_NAME))
 }
 
 fn is_executable_candidate(path: &Path) -> bool {
