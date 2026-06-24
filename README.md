@@ -120,6 +120,27 @@ release, lance le workflow à la main depuis cet onglet (*Run workflow*).
 - Clean up old generated label PDFs using a configurable retention period.
 - Show operational errors in the GUI instead of only printing them in Terminal.
 
+## Tauri Migration Preview
+
+A progressive Tauri 2 migration has been added alongside the Python/PySide app.
+It does not remove or replace the existing PyInstaller workflow.
+
+Development entry point:
+
+```bash
+npm install
+npm run tauri:dev
+```
+
+The Rust backend already scans devices, reads iPhone/iPad metadata through
+libimobiledevice CLI tools, resolves the existing local model/variant data,
+lists printers, prints through CUPS/SumatraPDF, and reads history. PDF rendering
+is intentionally still bridged to the existing Python `label_generator.py` so
+thermal label output stays unchanged during the migration.
+
+Detailed scope, run notes, and remaining work are in
+[`docs/tauri-migration.md`](docs/tauri-migration.md).
+
 ## Requirements
 
 Shared:

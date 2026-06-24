@@ -21,6 +21,11 @@ dist/
 build/
 *.spec
 
+# Tauri / web frontend
+node_modules/
+src-tauri/target/
+src-tauri/gen/
+
 # Local config / secrets
 .env
 .env.*
