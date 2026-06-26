@@ -55,7 +55,8 @@ signatures, and `latest.json`. Publish the draft only after hardware validation.
 ## macOS Shop Machine
 
 - Install the DMG from the draft release asset.
-- Install `libimobiledevice` with Homebrew if needed.
+- Confirm `assets/bin/macos-arm64` tools are bundled by scanning a connected
+  iPhone or iPad without installing Homebrew `libimobiledevice`.
 - Connect a trusted and unlocked device.
 - Scan device and confirm model, serial, IMEI, storage, color, iOS version,
   battery health, and battery cycle count where available.

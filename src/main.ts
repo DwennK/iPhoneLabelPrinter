@@ -85,6 +85,7 @@ interface EnvironmentInfo {
   projectRoot: string;
   dataRoot: string;
   bundledWindowsBinDir: string;
+  bundledMacosBinDir: string;
   generatedLabelsDir: string;
   historyPath: string;
 }
@@ -271,7 +272,7 @@ function render() {
           <div>
             <p class="eyebrow">${activeTitle}</p>
             <h1>${activeTitle}</h1>
-            <p class="status-line"><span class="status-dot ${state.busy ? "is-busy" : ""}"></span>${escapeHtml(state.status)}</p>
+            <p class="status-line"><span class="status-dot ${state.busy ? "is-busy" : ""}"></span>${escapeHtml(summaryStatus())}</p>
           </div>
           <div class="header-meta" aria-label="Current setup">
             <span>${effective.width} x ${effective.height} mm</span>
@@ -294,6 +295,10 @@ function activeTabTitle(tab: TabKey): string {
   return "Label workspace";
 }
 
+function summaryStatus(): string {
+  return state.status.split(/\n+/)[0] || state.status;
+}
+
 function tabButton(tab: TabKey, label: string): string {
   const active = state.activeTab === tab ? "is-active" : "";
   return `<button class="tab-button ${active}" data-tab="${tab}" type="button">${label}</button>`;
@@ -308,7 +313,7 @@ function labelTab(): string {
           <h2>Device connection</h2>
           <button class="primary" data-action="scan" type="button" ${disabledIfBusy()}>Scan Device</button>
         </div>
-        <p class="muted">${escapeHtml(state.status)}</p>
+        <p class="connection-status">${escapeHtml(state.status)}</p>
         ${deviceSelector()}
       </section>
 
@@ -494,6 +499,7 @@ function settingsTab(): string {
           <div><dt>Project root</dt><dd>${escapeHtml(state.environment?.projectRoot || "Loading...")}</dd></div>
           <div><dt>Data folder</dt><dd>${escapeHtml(state.environment?.dataRoot || "Loading...")}</dd></div>
           <div><dt>Windows binaries</dt><dd>${escapeHtml(state.environment?.bundledWindowsBinDir || "Loading...")}</dd></div>
+          <div><dt>macOS binaries</dt><dd>${escapeHtml(state.environment?.bundledMacosBinDir || "Loading...")}</dd></div>
           <div><dt>Generated PDFs</dt><dd>${escapeHtml(state.environment?.generatedLabelsDir || "Loading...")}</dd></div>
           <div><dt>History CSV</dt><dd>${escapeHtml(state.environment?.historyPath || "Loading...")}</dd></div>
         </dl>

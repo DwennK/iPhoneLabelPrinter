@@ -354,6 +354,12 @@ h2 {
   line-height: 1.4;
 }
 
+.connection-status {
+  color: var(--text-muted);
+  line-height: 1.45;
+  white-space: pre-line;
+}
+
 .device-select-row {
   margin-top: 10px;
 }

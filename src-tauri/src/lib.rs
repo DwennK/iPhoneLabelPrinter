@@ -94,6 +94,9 @@ fn environment_info() -> EnvironmentInfo {
         bundled_windows_bin_dir: command_runner::bundled_windows_bin_dir()
             .display()
             .to_string(),
+        bundled_macos_bin_dir: command_runner::bundled_macos_bin_dir()
+            .display()
+            .to_string(),
         generated_labels_dir: label::generated_labels_dir().display().to_string(),
         history_path: history::history_path().display().to_string(),
     }

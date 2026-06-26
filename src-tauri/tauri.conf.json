@@ -28,6 +28,7 @@
     "active": true,
     "targets": "all",
     "resources": [
+      "../assets/bin/macos-arm64",
       "../assets/bin/win32"
     ]
   },

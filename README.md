@@ -35,9 +35,16 @@ Shared:
 
 macOS:
 
-```bash
-brew install libimobiledevice
-```
+- `assets/bin/macos-arm64` is intentionally kept in the repo and bundled by
+  Tauri for Apple Silicon Macs. It contains `idevice_id`, `ideviceinfo`,
+  `idevicediagnostics`, and the required `.dylib` files.
+- For local development, Homebrew `libimobiledevice` can still be used as a
+  fallback:
+
+  ```bash
+  brew install libimobiledevice
+  ```
+- Intel Mac support requires adding a matching `assets/bin/macos-x64` bundle.
 
 Windows:
 
@@ -77,7 +84,8 @@ cd src-tauri && cargo test
 cd .. && npm run tauri:build
 ```
 
-The Tauri bundle includes the Windows binaries from `assets/bin/win32`.
+The Tauri bundle includes the Windows binaries from `assets/bin/win32` and the
+macOS Apple Silicon binaries from `assets/bin/macos-arm64`.
 
 ## Release
 
@@ -94,6 +102,7 @@ not committed; add it to the GitHub secret `TAURI_SIGNING_PRIVATE_KEY`.
 
 ```text
 assets/bin/win32/        Windows libimobiledevice tools, DLLs, SumatraPDF
+assets/bin/macos-arm64/  macOS arm64 libimobiledevice tools and dylibs
 generated_labels/        Dev-mode generated PDFs
 src/                     TypeScript frontend
 src-tauri/src/           Rust backend

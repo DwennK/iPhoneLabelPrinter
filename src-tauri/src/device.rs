@@ -241,6 +241,9 @@ fn get_battery_info(udid: &str) -> (String, String) {
 
 fn connection_error_from_message(message: &str) -> AppError {
     let normalized = message.to_ascii_lowercase();
+    if normalized.contains("required command") {
+        return AppError::new("Setup Required", message);
+    }
     if normalized.contains("lockdown_e_password_protected")
         || normalized.contains("passwordprotected")
     {

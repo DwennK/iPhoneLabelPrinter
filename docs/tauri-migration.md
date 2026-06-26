@@ -38,7 +38,9 @@ Platform behavior:
 
 - Windows resolves vendored tools from `assets/bin/win32` before falling back
   to `PATH`.
-- macOS and Linux use system `libimobiledevice` and CUPS commands from `PATH`.
+- macOS arm64 resolves vendored tools from `assets/bin/macos-arm64` before
+  falling back to Homebrew/system `PATH`.
+- Linux uses system `libimobiledevice` and CUPS commands from `PATH`.
 - Windows printing uses the vendored `SumatraPDF.exe`.
 - macOS/Linux printing uses `lp` with the configured label size.
 

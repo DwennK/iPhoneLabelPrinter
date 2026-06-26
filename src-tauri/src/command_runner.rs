@@ -24,6 +24,13 @@ pub fn bundled_windows_bin_dir() -> PathBuf {
     project_root().join("assets").join("bin").join("win32")
 }
 
+pub fn bundled_macos_bin_dir() -> PathBuf {
+    project_root()
+        .join("assets")
+        .join("bin")
+        .join(macos_bin_dir_name())
+}
+
 pub fn data_root() -> PathBuf {
     if let Some(override_dir) = env::var_os("IPHONE_LABEL_PRINTER_DATA_DIR") {
         return PathBuf::from(override_dir);
@@ -35,18 +42,16 @@ pub fn data_root() -> PathBuf {
 }
 
 pub fn resolve_tool(name: &str) -> Option<PathBuf> {
-    if cfg!(windows) {
-        let suffix = if name.to_ascii_lowercase().ends_with(".exe") {
-            ""
-        } else {
-            ".exe"
-        };
-        let filename = format!("{name}{suffix}");
-        for dir in bundled_tool_dirs() {
-            let candidate = dir.join(&filename);
-            if candidate.is_file() {
-                return Some(candidate);
-            }
+    let suffix = if cfg!(windows) && !name.to_ascii_lowercase().ends_with(".exe") {
+        ".exe"
+    } else {
+        ""
+    };
+    let filename = format!("{name}{suffix}");
+    for dir in bundled_tool_dirs() {
+        let candidate = dir.join(&filename);
+        if is_executable_candidate(&candidate) {
+            return Some(candidate);
         }
     }
 
@@ -54,12 +59,8 @@ pub fn resolve_tool(name: &str) -> Option<PathBuf> {
 }
 
 pub fn run_tool(name: &str, args: &[&str], timeout: Duration) -> AppResult<CommandOutput> {
-    let executable = resolve_tool(name).ok_or_else(|| {
-        AppError::new(
-            "Missing Dependency",
-            format!("Required command '{name}' was not found. Install it and try again."),
-        )
-    })?;
+    let executable = resolve_tool(name)
+        .ok_or_else(|| AppError::new("Missing Dependency", missing_dependency_message(name)))?;
     run_executable(&executable, args, timeout)
 }
 
@@ -130,22 +131,27 @@ pub fn run_executable(
 }
 
 fn bundled_tool_dirs() -> Vec<PathBuf> {
-    let mut dirs = vec![bundled_windows_bin_dir()];
+    let mut dirs = vec![bundled_platform_bin_dir()];
 
     if let Ok(cwd) = env::current_dir() {
-        dirs.push(cwd.join("assets").join("bin").join("win32"));
+        dirs.push(cwd.join("assets").join("bin").join(platform_bin_dir_name()));
     }
 
     if let Ok(exe) = env::current_exe() {
         if let Some(parent) = exe.parent() {
-            dirs.push(parent.join("assets").join("bin").join("win32"));
+            dirs.push(
+                parent
+                    .join("assets")
+                    .join("bin")
+                    .join(platform_bin_dir_name()),
+            );
             dirs.push(
                 parent
                     .join("..")
                     .join("Resources")
                     .join("assets")
                     .join("bin")
-                    .join("win32"),
+                    .join(platform_bin_dir_name()),
             );
             dirs.push(
                 parent
@@ -154,14 +160,14 @@ fn bundled_tool_dirs() -> Vec<PathBuf> {
                     .join("_up_")
                     .join("assets")
                     .join("bin")
-                    .join("win32"),
+                    .join(platform_bin_dir_name()),
             );
             dirs.push(
                 parent
                     .join("resources")
                     .join("assets")
                     .join("bin")
-                    .join("win32"),
+                    .join(platform_bin_dir_name()),
             );
             dirs.push(
                 parent
@@ -169,7 +175,7 @@ fn bundled_tool_dirs() -> Vec<PathBuf> {
                     .join("_up_")
                     .join("assets")
                     .join("bin")
-                    .join("win32"),
+                    .join(platform_bin_dir_name()),
             );
         }
     }
@@ -177,8 +183,32 @@ fn bundled_tool_dirs() -> Vec<PathBuf> {
     dirs
 }
 
+fn bundled_platform_bin_dir() -> PathBuf {
+    project_root()
+        .join("assets")
+        .join("bin")
+        .join(platform_bin_dir_name())
+}
+
+fn platform_bin_dir_name() -> &'static str {
+    if cfg!(windows) {
+        "win32"
+    } else if cfg!(target_os = "macos") {
+        macos_bin_dir_name()
+    } else {
+        "linux"
+    }
+}
+
+fn macos_bin_dir_name() -> &'static str {
+    if cfg!(target_arch = "aarch64") {
+        "macos-arm64"
+    } else {
+        "macos-x64"
+    }
+}
+
 fn find_on_path(name: &str) -> Option<PathBuf> {
-    let path = env::var_os("PATH")?;
     let has_separator = name.contains(std::path::MAIN_SEPARATOR);
     if has_separator {
         let candidate = PathBuf::from(name);
@@ -190,7 +220,7 @@ fn find_on_path(name: &str) -> Option<PathBuf> {
         filenames.push(format!("{name}.exe"));
     }
 
-    for dir in env::split_paths(&path) {
+    for dir in candidate_path_dirs() {
         for filename in &filenames {
             let candidate = dir.join(filename);
             if is_executable_candidate(&candidate) {
@@ -200,6 +230,53 @@ fn find_on_path(name: &str) -> Option<PathBuf> {
     }
 
     None
+}
+
+fn candidate_path_dirs() -> Vec<PathBuf> {
+    let mut dirs: Vec<PathBuf> = env::var_os("PATH")
+        .map(|path| env::split_paths(&path).collect())
+        .unwrap_or_default();
+
+    for fallback in platform_fallback_tool_dirs() {
+        let fallback_path = PathBuf::from(fallback);
+        if !dirs.iter().any(|dir| dir == &fallback_path) {
+            dirs.push(fallback_path);
+        }
+    }
+
+    dirs
+}
+
+#[cfg(target_os = "macos")]
+fn platform_fallback_tool_dirs() -> &'static [&'static str] {
+    &["/opt/homebrew/bin", "/usr/local/bin", "/usr/bin", "/bin"]
+}
+
+#[cfg(all(unix, not(target_os = "macos")))]
+fn platform_fallback_tool_dirs() -> &'static [&'static str] {
+    &["/usr/local/bin", "/usr/bin", "/bin"]
+}
+
+#[cfg(windows)]
+fn platform_fallback_tool_dirs() -> &'static [&'static str] {
+    &[]
+}
+
+fn missing_dependency_message(name: &str) -> String {
+    if matches!(name, "idevice_id" | "ideviceinfo" | "idevicediagnostics") {
+        let install_hint = if cfg!(target_os = "macos") {
+            "\n\nInstall it with Homebrew:\nbrew install libimobiledevice"
+        } else if cfg!(target_os = "linux") {
+            "\n\nInstall the libimobiledevice package for this Linux distribution."
+        } else {
+            ""
+        };
+        return format!(
+            "Required command '{name}' was not found. The app needs libimobiledevice to scan iPhones and iPads.{install_hint}"
+        );
+    }
+
+    format!("Required command '{name}' was not found. Install it and try again.")
 }
 
 fn platform_data_root() -> Option<PathBuf> {
@@ -260,5 +337,31 @@ mod tests {
             .join("idevice_id.exe")
             .to_string_lossy()
             .contains("assets"));
+    }
+
+    #[cfg(all(target_os = "macos", target_arch = "aarch64"))]
+    #[test]
+    fn bundled_macos_bin_dir_matches_existing_layout() {
+        let expected = bundled_macos_bin_dir().join("idevice_id");
+        assert!(expected.is_file());
+        assert_eq!(
+            resolve_tool("idevice_id").as_deref(),
+            Some(expected.as_path())
+        );
+    }
+
+    #[test]
+    fn libimobiledevice_missing_dependency_message_names_package() {
+        let message = missing_dependency_message("idevice_id");
+        assert!(message.contains("libimobiledevice"));
+        assert!(message.contains("idevice_id"));
+    }
+
+    #[cfg(target_os = "macos")]
+    #[test]
+    fn macos_fallback_tool_dirs_include_homebrew_bins() {
+        let dirs = candidate_path_dirs();
+        assert!(dirs.iter().any(|dir| dir == Path::new("/opt/homebrew/bin")));
+        assert!(dirs.iter().any(|dir| dir == Path::new("/usr/local/bin")));
     }
 }
