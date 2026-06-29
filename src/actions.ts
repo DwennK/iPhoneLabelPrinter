@@ -22,6 +22,7 @@ import {
   effectiveLabelOptions,
   filteredHistory,
   normalizeImei,
+  renderLabelPreview,
   selectedPrinterProfile,
   updateAlerts,
 } from "./views";
@@ -54,9 +55,14 @@ export function attachEvents(app: HTMLElement, state: AppState, render: RenderFn
   bindButton(app, "cleanup-labels", () => cleanupGeneratedLabels(state, render));
   bindButton(app, "open-support-log", () => openSupportLog(state, render));
   bindButton(app, "check-updates", () => checkForUpdates(state, render));
+  bindButton(app, "install-update", () => installUpdate(state, render));
+  bindButton(app, "relaunch-now", () => relaunchNow(state, render));
 
-  app.querySelector<HTMLSelectElement>("[data-device]")?.addEventListener("change", (event) => {
-    state.selectedUdid = (event.target as HTMLSelectElement).value;
+  app.querySelectorAll<HTMLButtonElement>("[data-device-card]").forEach((button) => {
+    button.addEventListener("click", () => {
+      state.selectedUdid = button.dataset.deviceCard || "";
+      render();
+    });
   });
 
   app.querySelector<HTMLSelectElement>("[data-printer]")?.addEventListener("change", (event) => {
@@ -73,6 +79,8 @@ export function attachEvents(app: HTMLElement, state: AppState, render: RenderFn
       state.info[key] = input.value as never;
       state.generatedPdfPath = "";
       updateGeneratedPathText(app, state);
+      updateLabelPreview(app, state);
+      updatePreviewStatus(app, state);
       updateAlerts(app, state);
     });
   });
@@ -86,6 +94,8 @@ export function attachEvents(app: HTMLElement, state: AppState, render: RenderFn
     control.addEventListener("change", () => {
       updateDefaultSettingFromControl(state.settings, control);
       state.generatedPdfPath = "";
+      updateLabelPreview(app, state);
+      updatePreviewStatus(app, state);
     });
   });
 
@@ -110,6 +120,7 @@ export async function bootstrap(state: AppState, render: RenderFn) {
     loadEnvironment(state, render),
     refreshPrinters(state, render),
     refreshHistory(state, render, false),
+    refreshUpdateBadge(state, render),
   ]);
 }
 
@@ -135,7 +146,9 @@ async function scanDevices(state: AppState, render: RenderFn) {
     if (devices.length === 1) {
       await readDevice(state, devices[0].udid);
     } else {
-      state.status = `${devices.length} devices detected. Select the one to read.`;
+      state.info = { ...EMPTY_INFO };
+      state.generatedPdfPath = "";
+      state.status = `${devices.length} devices detected. Select a device card to read.`;
     }
   });
 }
@@ -323,23 +336,57 @@ async function checkForUpdates(state: AppState, render: RenderFn) {
   await withBusy(state, render, "Checking for updates...", async () => {
     const update = await api.check({ timeout: 30_000 });
     if (!update) {
+      state.updateAvailableVersion = "";
+      state.updateReadyToRelaunch = false;
       state.status = "No update available.";
       render();
       return;
     }
 
-    state.status = `Installing iPhoneLabelPrinter ${update.version}...`;
+    state.updateAvailableVersion = update.version;
+    state.updateReadyToRelaunch = false;
+    state.status = `Update available: iPhoneLabelPrinter ${update.version}.`;
+  });
+}
+
+async function refreshUpdateBadge(state: AppState, render: RenderFn) {
+  try {
+    const update = await api.check({ timeout: 10_000 });
+    state.updateAvailableVersion = update?.version || "";
+    state.updateReadyToRelaunch = false;
+    render();
+  } catch {
+    state.updateAvailableVersion = "";
+  }
+}
+
+async function installUpdate(state: AppState, render: RenderFn) {
+  await withBusy(state, render, "Preparing update...", async () => {
+    const update = await api.check({ timeout: 30_000 });
+    if (!update) {
+      state.updateAvailableVersion = "";
+      state.updateReadyToRelaunch = false;
+      state.status = "No update available.";
+      return;
+    }
+    state.updateAvailableVersion = update.version;
+    state.status = `Downloading iPhoneLabelPrinter ${update.version}...`;
     render();
     await update.downloadAndInstall((event) => {
       if (event.event === "Started") {
         state.status = "Downloading update...";
       } else if (event.event === "Finished") {
-        state.status = "Installing update...";
+        state.status = "Update installed. Relaunch to finish.";
       }
       render();
     });
-    state.status = "Update installed. Relaunching...";
-    render();
+    state.updateReadyToRelaunch = true;
+    state.status = "Update installed. Relaunch to finish.";
+  });
+}
+
+async function relaunchNow(state: AppState, render: RenderFn) {
+  await withBusy(state, render, "Relaunching app...", async () => {
     await api.relaunch();
   });
 }
@@ -425,6 +472,19 @@ function selectedHistoryEntry(app: HTMLElement, state: AppState): HistoryEntry |
 function updateGeneratedPathText(app: HTMLElement, state: AppState) {
   const box = app.querySelector(".pdf-box strong");
   if (box) box.textContent = state.generatedPdfPath || "Label changed; generate it again before printing.";
+}
+
+function updatePreviewStatus(app: HTMLElement, state: AppState) {
+  const badge = app.querySelector(".preview-status");
+  if (!badge) return;
+  badge.classList.toggle("is-current", Boolean(state.generatedPdfPath));
+  badge.classList.toggle("is-stale", !state.generatedPdfPath);
+  badge.textContent = state.generatedPdfPath ? "Up to date" : "Changed, regenerate";
+}
+
+function updateLabelPreview(app: HTMLElement, state: AppState) {
+  const preview = app.querySelector(".label-preview-box");
+  if (preview) preview.outerHTML = renderLabelPreview(state);
 }
 
 function setError(state: AppState, render: RenderFn, title: string, message: string) {

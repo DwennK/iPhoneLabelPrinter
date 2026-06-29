@@ -112,6 +112,8 @@ export interface AppState {
   history: HistoryEntry[];
   historyQuery: string;
   environment: EnvironmentInfo | null;
+  updateAvailableVersion: string;
+  updateReadyToRelaunch: boolean;
   settings: AppSettings;
 }
 

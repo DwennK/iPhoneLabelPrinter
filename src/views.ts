@@ -154,7 +154,11 @@ function summaryStatus(state: AppState): string {
 
 function tabButton(state: AppState, tab: TabKey, label: string): string {
   const active = state.activeTab === tab ? "is-active" : "";
-  return `<button class="tab-button ${active}" data-tab="${tab}" type="button">${label}</button>`;
+  const updateBadge =
+    tab === "settings" && (state.updateAvailableVersion || state.updateReadyToRelaunch)
+      ? `<span class="nav-badge">Update</span>`
+      : "";
+  return `<button class="tab-button ${active}" data-tab="${tab}" type="button"><span>${label}</span>${updateBadge}</button>`;
 }
 
 function labelTab(state: AppState): string {
@@ -208,6 +212,7 @@ function labelTab(state: AppState): string {
           <div><dt>Identifier</dt><dd>${escapeHtml(primaryIdentifier(state))}</dd></div>
           <div><dt>Battery</dt><dd>${escapeHtml(state.info.batteryHealth || "Optional")}</dd></div>
         </dl>
+        ${renderLabelPreview(state)}
         <div class="pdf-box">
           <span class="muted">PDF</span>
           <strong>${escapeHtml(state.generatedPdfPath || "No label generated yet.")}</strong>
@@ -239,18 +244,64 @@ function labelTab(state: AppState): string {
 
 function deviceSelector(state: AppState): string {
   if (state.devices.length <= 1) return "";
+  const selected = state.devices.find((device) => device.udid === state.selectedUdid);
   return `
-    <div class="device-select-row">
-      <select data-device>
-        ${state.devices
-          .map(
-            (device) =>
-              `<option value="${escapeAttribute(device.udid)}" ${device.udid === state.selectedUdid ? "selected" : ""}>${escapeHtml(device.displayName)}</option>`,
-          )
-          .join("")}
-      </select>
-      <button class="secondary" data-action="read-selected" type="button" ${disabledIfBusy(state)}>Read Selected</button>
+    <div class="device-card-grid">
+      ${state.devices.map(deviceCard(state)).join("")}
     </div>
+    <div class="device-select-row">
+      <span class="muted">${escapeHtml(selected?.displayName || "No device selected")}</span>
+      <button class="primary" data-action="read-selected" type="button" ${disabledIfBusy(state)}>Read Selected</button>
+    </div>
+  `;
+}
+
+function deviceCard(state: AppState) {
+  return (device: AppState["devices"][number]) => {
+    const isSelected = device.udid === state.selectedUdid;
+    const label = device.displayName.replace(`(${device.udid})`, "").trim() || device.udid;
+    return `
+      <button class="device-card ${isSelected ? "is-selected" : ""}" data-device-card="${escapeAttribute(device.udid)}" type="button" ${disabledIfBusy(state)}>
+        <strong>${escapeHtml(label)}</strong>
+        <span>${escapeHtml(shortIdentifier(device.udid))}</span>
+        ${isSelected ? `<em>Selected</em>` : ""}
+      </button>
+    `;
+  };
+}
+
+export function renderLabelPreview(state: AppState): string {
+  const effective = effectiveLabelSize(state);
+  const isCurrent = Boolean(state.generatedPdfPath);
+  const statusClass = isCurrent ? "is-current" : "is-stale";
+  const statusLabel = isCurrent ? "Up to date" : "Changed, regenerate";
+  const variant = [state.info.storage, state.info.color].filter(Boolean).join(" - ") || "Missing variant";
+  const os = state.info.iosVersion ? `OS: ${state.info.iosVersion}` : "";
+  const serial = state.info.serialNumber ? `S/N: ${state.info.serialNumber}` : "S/N: -";
+  return `
+    <section class="label-preview-box" aria-label="Label preview">
+      <div class="preview-header">
+        <span>Preview</span>
+        <strong class="preview-status ${statusClass}">${statusLabel}</strong>
+      </div>
+      <div class="label-preview-shell">
+        <div class="label-preview-frame ${effective.labelOrientation}">
+          <div class="label-preview-copy">
+            <strong>${escapeHtml(state.info.marketingModel || "Unknown model")}</strong>
+            <span>${escapeHtml(variant)}</span>
+            <span>${escapeHtml(primaryIdentifier(state))}</span>
+            <span>${escapeHtml(state.info.batteryHealth ? `Battery: ${state.info.batteryHealth}` : "Battery: optional")}</span>
+            ${os ? `<span>${escapeHtml(os)}</span>` : ""}
+            <span>${escapeHtml(serial)}</span>
+          </div>
+          <div class="label-preview-qr" aria-hidden="true"></div>
+          <div class="label-preview-footer">
+            <span>${escapeHtml(effective.labelWidthMm.toString())} x ${escapeHtml(effective.labelHeightMm.toString())} mm</span>
+            <span>${escapeHtml(state.info.technicalModel || "")}</span>
+          </div>
+        </div>
+      </div>
+    </section>
   `;
 }
 
@@ -356,7 +407,7 @@ function settingsTab(state: AppState): string {
         </div>
         <div class="button-row">
           <button class="secondary" data-action="cleanup-labels" type="button" ${disabledIfBusy(state)}>Clean Now</button>
-          <button class="secondary" data-action="check-updates" type="button" ${disabledIfBusy(state)}>Check Updates</button>
+          ${updateActions(state)}
           <button class="secondary" data-action="open-support-log" type="button" ${disabledIfBusy(state)}>Open Support Log</button>
           <button class="secondary" data-action="reset-settings" type="button">Reset Profiles</button>
           <button class="primary" data-action="save-settings" type="button">Save Settings</button>
@@ -376,6 +427,19 @@ function settingsTab(state: AppState): string {
       </section>
     </section>
   `;
+}
+
+function updateActions(state: AppState): string {
+  if (state.updateReadyToRelaunch) {
+    return `<button class="primary strong" data-action="relaunch-now" type="button" ${disabledIfBusy(state)}>Relaunch Now</button>`;
+  }
+  if (state.updateAvailableVersion) {
+    return `
+      <span class="update-badge">v${escapeHtml(state.updateAvailableVersion)}</span>
+      <button class="primary" data-action="install-update" type="button" ${disabledIfBusy(state)}>Install Update</button>
+    `;
+  }
+  return `<button class="secondary" data-action="check-updates" type="button" ${disabledIfBusy(state)}>Check Updates</button>`;
 }
 
 function profileControls(profile: PrinterProfile): string {
@@ -415,6 +479,11 @@ function scaleOptions(selected: string): string {
 
 function scaleLabel(value: string): string {
   return value === "fit" ? "fit to page" : "actual size";
+}
+
+function shortIdentifier(value: string): string {
+  if (value.length <= 12) return value;
+  return `${value.slice(0, 6)}...${value.slice(-6)}`;
 }
 
 function alertMessages(state: AppState): string[] {

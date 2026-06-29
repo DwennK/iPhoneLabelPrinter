@@ -16,6 +16,8 @@ export function createInitialState(): AppState {
     history: [],
     historyQuery: "",
     environment: null,
+    updateAvailableVersion: "",
+    updateReadyToRelaunch: false,
     settings: loadSettings(),
   };
 }
