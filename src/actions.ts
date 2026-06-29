@@ -52,6 +52,7 @@ export function attachEvents(app: HTMLElement, state: AppState, render: RenderFn
   bindButton(app, "save-printer-profile", () => savePrinterProfile(state, render));
   bindButton(app, "reset-settings", () => resetSettings(state, render));
   bindButton(app, "cleanup-labels", () => cleanupGeneratedLabels(state, render));
+  bindButton(app, "open-support-log", () => openSupportLog(state, render));
   bindButton(app, "check-updates", () => checkForUpdates(state, render));
 
   app.querySelector<HTMLSelectElement>("[data-device]")?.addEventListener("change", (event) => {
@@ -245,7 +246,7 @@ async function refreshHistory(state: AppState, render: RenderFn, showStatus = tr
 
 async function openGeneratedPdf(state: AppState) {
   if (state.generatedPdfPath) {
-    await api.openPath(state.generatedPdfPath);
+    await api.openDataFile(state.generatedPdfPath);
   }
 }
 
@@ -256,7 +257,7 @@ async function openSelectedHistoryPdf(app: HTMLElement, state: AppState, render:
     return;
   }
   if (entry.pdfPath) {
-    await api.openPath(entry.pdfPath);
+    await api.openDataFile(entry.pdfPath);
   }
 }
 
@@ -291,15 +292,31 @@ async function exportHistoryCsv(state: AppState, render: RenderFn) {
   await withBusy(state, render, "Exporting history CSV...", async () => {
     const response = await api.exportHistory(null);
     state.status = `History exported: ${response.destinationPath}`;
-    await api.openPath(response.destinationPath);
+    await api.openDataFile(response.destinationPath);
   });
 }
 
 async function cleanupGeneratedLabels(state: AppState, render: RenderFn) {
   await withBusy(state, render, "Cleaning generated PDFs...", async () => {
-    const response = await api.cleanupGeneratedLabels(Math.round(state.settings.labelRetentionDays));
-    state.status = `Deleted ${response.deletedPaths.length} old label PDF(s).`;
+    const retentionDays = Math.round(state.settings.labelRetentionDays);
+    const [labelResponse, historyResponse] = await Promise.all([
+      api.cleanupGeneratedLabels(retentionDays),
+      api.cleanupHistory(retentionDays),
+    ]);
+    state.status = `Deleted ${labelResponse.deletedPaths.length} old label PDF(s) and ${historyResponse.deletedCount} history row(s).`;
+    await refreshHistory(state, render, false);
   });
+}
+
+async function openSupportLog(state: AppState, render: RenderFn) {
+  if (state.environment?.supportLogPath) {
+    try {
+      await api.openDataFile(state.environment.supportLogPath);
+    } catch (error) {
+      const appError = normalizeError(error);
+      setError(state, render, appError.title, appError.message);
+    }
+  }
 }
 
 async function checkForUpdates(state: AppState, render: RenderFn) {

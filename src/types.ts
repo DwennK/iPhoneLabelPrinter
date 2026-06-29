@@ -59,11 +59,16 @@ export interface CleanupLabelsResponse {
   deletedPaths: string[];
 }
 
+export interface CleanupHistoryResponse {
+  deletedCount: number;
+}
+
 export interface ExportHistoryResponse {
   destinationPath: string;
 }
 
 export interface HistoryEntry {
+  labelId: string;
   createdAt: string;
   printedAt: string;
   marketingModel: string;
@@ -90,6 +95,7 @@ export interface EnvironmentInfo {
   bundledMacosBinDir: string;
   generatedLabelsDir: string;
   historyPath: string;
+  supportLogPath: string;
 }
 
 export interface AppState {

@@ -40,8 +40,52 @@ pub struct PrinterInfo {
 pub struct LabelOptions {
     pub label_width_mm: f64,
     pub label_height_mm: f64,
-    pub label_orientation: String,
-    pub print_scale_mode: String,
+    pub label_orientation: LabelOrientation,
+    pub print_scale_mode: PrintScaleMode,
+}
+
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "lowercase")]
+pub enum LabelOrientation {
+    Portrait,
+    Landscape,
+}
+
+impl LabelOrientation {
+    pub fn is_landscape(self) -> bool {
+        matches!(self, Self::Landscape)
+    }
+}
+
+impl std::fmt::Display for LabelOrientation {
+    fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::Portrait => formatter.write_str("portrait"),
+            Self::Landscape => formatter.write_str("landscape"),
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "lowercase")]
+pub enum PrintScaleMode {
+    Noscale,
+    Fit,
+}
+
+impl PrintScaleMode {
+    pub fn is_fit(self) -> bool {
+        matches!(self, Self::Fit)
+    }
+}
+
+impl std::fmt::Display for PrintScaleMode {
+    fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::Noscale => formatter.write_str("noscale"),
+            Self::Fit => formatter.write_str("fit"),
+        }
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -77,18 +121,25 @@ pub struct CleanupLabelsResponse {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
+pub struct CleanupHistoryResponse {
+    pub deleted_count: usize,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct PrintRequest {
     pub printer_name: String,
     pub pdf_path: String,
     pub label_width_mm: f64,
     pub label_height_mm: f64,
-    pub orientation: String,
-    pub print_scale_mode: String,
+    pub orientation: LabelOrientation,
+    pub print_scale_mode: PrintScaleMode,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct HistoryEntry {
+    pub label_id: String,
     pub created_at: String,
     pub printed_at: String,
     pub marketing_model: String,
@@ -129,4 +180,5 @@ pub struct EnvironmentInfo {
     pub bundled_macos_bin_dir: String,
     pub generated_labels_dir: String,
     pub history_path: String,
+    pub support_log_path: String,
 }

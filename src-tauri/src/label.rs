@@ -39,8 +39,10 @@ pub fn generate_label(request: &GenerateLabelRequest) -> AppResult<GenerateLabel
         sanitize_filename_part(name_source)
     );
     let pdf_path = output_dir.join(filename);
-    let label_width_mm = positive_or_default(request.options.label_width_mm, LABEL_WIDTH_MM);
-    let label_height_mm = positive_or_default(request.options.label_height_mm, LABEL_HEIGHT_MM);
+    let (label_width_mm, label_height_mm) = validated_label_size(
+        request.options.label_width_mm,
+        request.options.label_height_mm,
+    )?;
 
     write_label_pdf(
         &request.info,
@@ -54,8 +56,8 @@ pub fn generate_label(request: &GenerateLabelRequest) -> AppResult<GenerateLabel
         &pdf_path,
         label_width_mm,
         label_height_mm,
-        &request.options.label_orientation,
-        &request.options.print_scale_mode,
+        &request.options.label_orientation.to_string(),
+        &request.options.print_scale_mode.to_string(),
         now,
     )?;
 
@@ -71,12 +73,11 @@ pub fn generate_calibration_label(
     let output_dir = generated_labels_dir();
     fs::create_dir_all(&output_dir)?;
     let pdf_path = output_dir.join(format!("{}_calibration.pdf", now.format("%Y%m%d_%H%M%S")));
-    write_calibration_label_pdf(
-        &pdf_path,
-        positive_or_default(request.options.label_width_mm, LABEL_WIDTH_MM),
-        positive_or_default(request.options.label_height_mm, LABEL_HEIGHT_MM),
-        now,
+    let (label_width_mm, label_height_mm) = validated_label_size(
+        request.options.label_width_mm,
+        request.options.label_height_mm,
     )?;
+    write_calibration_label_pdf(&pdf_path, label_width_mm, label_height_mm, now)?;
     Ok(GenerateLabelResponse {
         pdf_path: pdf_path.display().to_string(),
     })
@@ -579,6 +580,7 @@ impl PdfContent {
         self.draw_text(text, right_x - width, y, font, size);
     }
 
+    #[allow(clippy::too_many_arguments)]
     fn draw_fit_text(
         &mut self,
         text: &str,
@@ -644,7 +646,7 @@ impl PdfContent {
 
 fn write_pdf(path: &Path, width: f64, height: f64, content: &str) -> AppResult<()> {
     let content_bytes = content.as_bytes();
-    let objects = vec![
+    let objects = [
         "<< /Type /Catalog /Pages 2 0 R /ViewerPreferences << /PrintScaling /None >> >>"
             .to_string(),
         "<< /Type /Pages /Kids [3 0 R] /Count 1 >>".to_string(),
@@ -755,6 +757,18 @@ fn positive_or_default(value: f64, default: f64) -> f64 {
     } else {
         default
     }
+}
+
+fn validated_label_size(width_mm: f64, height_mm: f64) -> AppResult<(f64, f64)> {
+    let width_mm = positive_or_default(width_mm, LABEL_WIDTH_MM);
+    let height_mm = positive_or_default(height_mm, LABEL_HEIGHT_MM);
+    if !(20.0..=200.0).contains(&width_mm) || !(20.0..=200.0).contains(&height_mm) {
+        return Err(AppError::new(
+            "Invalid Label Size",
+            "Label width and height must be between 20 mm and 200 mm.",
+        ));
+    }
+    Ok((width_mm, height_mm))
 }
 
 fn number(value: f64) -> String {

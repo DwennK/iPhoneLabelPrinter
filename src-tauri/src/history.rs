@@ -1,11 +1,12 @@
 use crate::command_runner::data_root;
 use crate::error::{AppError, AppResult};
 use crate::types::{ExportHistoryRequest, ExportHistoryResponse, HistoryEntry, IPhoneInfo};
-use chrono::{DateTime, Local};
+use chrono::{DateTime, Duration, Local};
 use std::fs::{self, File};
 use std::path::{Path, PathBuf};
 
 const HISTORY_FIELDS: &[&str] = &[
+    "label_id",
     "created_at",
     "printed_at",
     "marketing_model",
@@ -44,6 +45,7 @@ pub fn append_generated_entry(
 ) -> AppResult<HistoryEntry> {
     let mut entries = read_history_chronological(&history_path())?;
     let entry = HistoryEntry {
+        label_id: label_id(created_at),
         created_at: timestamp(created_at),
         marketing_model: info.marketing_model.clone(),
         technical_model: info.technical_model.clone(),
@@ -104,6 +106,28 @@ pub fn export_history(request: &ExportHistoryRequest) -> AppResult<ExportHistory
     Ok(ExportHistoryResponse {
         destination_path: destination.display().to_string(),
     })
+}
+
+pub fn cleanup_history(retention_days: i64) -> AppResult<usize> {
+    cleanup_history_at_path(&history_path(), retention_days)
+}
+
+fn cleanup_history_at_path(path: &Path, retention_days: i64) -> AppResult<usize> {
+    if retention_days <= 0 {
+        return Ok(0);
+    }
+    let entries = read_history_chronological(path)?;
+    let cutoff = timestamp(Local::now() - Duration::days(retention_days));
+    let original_count = entries.len();
+    let retained: Vec<HistoryEntry> = entries
+        .into_iter()
+        .filter(|entry| entry.created_at.is_empty() || entry.created_at.as_str() >= cutoff.as_str())
+        .collect();
+    let deleted_count = original_count.saturating_sub(retained.len());
+    if deleted_count > 0 {
+        write_history(path, &retained)?;
+    }
+    Ok(deleted_count)
 }
 
 fn read_history_from_path(path: &Path) -> AppResult<Vec<HistoryEntry>> {
@@ -188,29 +212,38 @@ fn write_history(path: &Path, entries: &[HistoryEntry]) -> AppResult<()> {
 
 fn entry_from_row(row: &std::collections::HashMap<String, String>) -> HistoryEntry {
     let get = |field: &str| row.get(field).cloned().unwrap_or_default();
+    let created_at = get("created_at");
+    let pdf_path = get("pdf_path");
+    let label_id = get("label_id");
     HistoryEntry {
-        created_at: get(HISTORY_FIELDS[0]),
-        printed_at: get(HISTORY_FIELDS[1]),
-        marketing_model: get(HISTORY_FIELDS[2]),
-        technical_model: get(HISTORY_FIELDS[3]),
-        storage: get(HISTORY_FIELDS[4]),
-        color: get(HISTORY_FIELDS[5]),
-        imei: get(HISTORY_FIELDS[6]),
-        serial_number: get(HISTORY_FIELDS[7]),
-        device_name: get(HISTORY_FIELDS[8]),
-        ios_version: get(HISTORY_FIELDS[9]),
-        battery_health: get(HISTORY_FIELDS[10]),
-        printer_name: get(HISTORY_FIELDS[11]),
-        pdf_path: get(HISTORY_FIELDS[12]),
-        label_width_mm: get(HISTORY_FIELDS[13]),
-        label_height_mm: get(HISTORY_FIELDS[14]),
-        label_orientation: get(HISTORY_FIELDS[15]),
-        print_scale_mode: get(HISTORY_FIELDS[16]),
+        label_id: if label_id.is_empty() {
+            legacy_label_id(&created_at, &pdf_path)
+        } else {
+            label_id
+        },
+        created_at,
+        printed_at: get("printed_at"),
+        marketing_model: get("marketing_model"),
+        technical_model: get("technical_model"),
+        storage: get("storage"),
+        color: get("color"),
+        imei: get("imei"),
+        serial_number: get("serial_number"),
+        device_name: get("device_name"),
+        ios_version: get("ios_version"),
+        battery_health: get("battery_health"),
+        printer_name: get("printer_name"),
+        pdf_path,
+        label_width_mm: get("label_width_mm"),
+        label_height_mm: get("label_height_mm"),
+        label_orientation: get("label_orientation"),
+        print_scale_mode: get("print_scale_mode"),
     }
 }
 
-fn entry_fields(entry: &HistoryEntry) -> [&str; 17] {
+fn entry_fields(entry: &HistoryEntry) -> [&str; 18] {
     [
+        &entry.label_id,
         &entry.created_at,
         &entry.printed_at,
         &entry.marketing_model,
@@ -282,6 +315,42 @@ fn timestamp(value: DateTime<Local>) -> String {
     value.format("%Y-%m-%d %H:%M:%S").to_string()
 }
 
+fn label_id(value: DateTime<Local>) -> String {
+    format!("lbl-{}", value.timestamp_millis())
+}
+
+fn legacy_label_id(created_at: &str, pdf_path: &str) -> String {
+    let raw = if !pdf_path.trim().is_empty() {
+        pdf_path
+    } else if !created_at.trim().is_empty() {
+        created_at
+    } else {
+        "unknown"
+    };
+    format!("legacy-{}", sanitize_history_id(raw))
+}
+
+fn sanitize_history_id(value: &str) -> String {
+    let sanitized: String = value
+        .chars()
+        .filter_map(|character| {
+            if character.is_ascii_alphanumeric() {
+                Some(character.to_ascii_lowercase())
+            } else if matches!(character, '-' | '_' | '.') {
+                Some(character)
+            } else {
+                None
+            }
+        })
+        .take(48)
+        .collect();
+    if sanitized.is_empty() {
+        "unknown".to_string()
+    } else {
+        sanitized
+    }
+}
+
 fn normalized_path(path: &Path) -> String {
     let absolute = if path.is_absolute() {
         path.to_path_buf()
@@ -329,6 +398,7 @@ mod tests {
 
         let mut entries = read_history_chronological(&path).unwrap();
         assert_eq!(entries.len(), 1);
+        assert!(entries[0].label_id.starts_with("legacy-"));
         assert_eq!(entries[0].print_scale_mode, "");
         entries[0].print_scale_mode = "noscale".to_string();
         write_history(&path, &entries).unwrap();
@@ -336,7 +406,38 @@ mod tests {
         assert!(backup_history_path(&path).is_file());
         let rewritten = fs::read_to_string(&path).unwrap();
         assert!(rewritten.contains("print_scale_mode"));
+        assert!(rewritten.contains("label_id"));
         assert!(rewritten.contains("noscale"));
+        let _ = fs::remove_dir_all(dir);
+    }
+
+    #[test]
+    fn cleanup_history_removes_old_rows() {
+        let dir = std::env::temp_dir().join(format!(
+            "iphone_history_cleanup_test_{}",
+            std::process::id()
+        ));
+        let _ = fs::remove_dir_all(&dir);
+        fs::create_dir_all(&dir).unwrap();
+        let path = dir.join("label_history.csv");
+        let entries = vec![
+            HistoryEntry {
+                label_id: "old".to_string(),
+                created_at: "2020-01-01 10:00:00".to_string(),
+                ..HistoryEntry::default()
+            },
+            HistoryEntry {
+                label_id: "new".to_string(),
+                created_at: timestamp(Local::now()),
+                ..HistoryEntry::default()
+            },
+        ];
+        write_history(&path, &entries).unwrap();
+        let deleted = cleanup_history_at_path(&path, 30).unwrap();
+        assert_eq!(deleted, 1);
+        let retained = read_history_chronological(&path).unwrap();
+        assert_eq!(retained.len(), 1);
+        assert_eq!(retained[0].label_id, "new");
         let _ = fs::remove_dir_all(dir);
     }
 }

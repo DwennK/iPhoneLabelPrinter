@@ -21,6 +21,9 @@ been removed from this branch.
 - List printers and print through CUPS on macOS/Linux.
 - Print through SumatraPDF on Windows.
 - Read, update, search, reprint, and export `label_history.csv`.
+- Apply the configured retention window to generated PDFs and history rows.
+- Write a support log in the app data folder for command and troubleshooting
+  diagnostics.
 - Keep vendored Windows binaries in `assets/bin/win32`.
 
 ## Requirements
@@ -83,6 +86,7 @@ lpstat -p
 
 ```bash
 npm run build
+npm run validate:catalog
 cd src-tauri && cargo test
 cd .. && npm run tauri:build
 ```
@@ -114,16 +118,16 @@ docs/release-validation.md Hardware release checklist
 docs/tauri-migration.md  Migration status and release notes
 ```
 
-In dev builds, generated PDFs and `label_history.csv` are written at the repo
-root to keep manual testing simple. In release builds, they are written to the
-user application data folder. Set `IPHONE_LABEL_PRINTER_DATA_DIR` to override
-that location.
+In dev builds, generated PDFs, `label_history.csv`, and `support.log` are
+written at the repo root to keep manual testing simple. In release builds, they
+are written to the user application data folder. Set
+`IPHONE_LABEL_PRINTER_DATA_DIR` to override that location.
 
 ## Remaining Release Work
 
 - Validate each draft release on the shop Windows and macOS machines with real
   devices and the thermal printer.
-- Decide whether to add a JSON refresh pipeline for the Apple model/variant
-  data now stored in `src-tauri/data`.
+- Extend `scripts/validate-catalog.mjs` into a full JSON refresh pipeline for
+  the Apple model/variant data now stored in `src-tauri/data`.
 - Add platform code signing/notarization if the app is distributed beyond
   internal use.

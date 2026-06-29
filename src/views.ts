@@ -70,6 +70,7 @@ export function filteredHistory(state: AppState): HistoryEntry[] {
   return state.history.filter((entry) =>
     [
       entry.createdAt,
+      entry.labelId,
       entry.printedAt,
       entry.marketingModel,
       entry.technicalModel,
@@ -349,13 +350,14 @@ function settingsTab(state: AppState): string {
             </select>
           </label>
           <label class="field">
-            <span>Keep generated PDFs</span>
+            <span>Keep labels/history</span>
             <input data-setting="labelRetentionDays" type="number" min="0" max="365" step="1" value="${state.settings.labelRetentionDays}" />
           </label>
         </div>
         <div class="button-row">
           <button class="secondary" data-action="cleanup-labels" type="button" ${disabledIfBusy(state)}>Clean Now</button>
           <button class="secondary" data-action="check-updates" type="button" ${disabledIfBusy(state)}>Check Updates</button>
+          <button class="secondary" data-action="open-support-log" type="button" ${disabledIfBusy(state)}>Open Support Log</button>
           <button class="secondary" data-action="reset-settings" type="button">Reset Profiles</button>
           <button class="primary" data-action="save-settings" type="button">Save Settings</button>
         </div>
@@ -369,6 +371,7 @@ function settingsTab(state: AppState): string {
           <div><dt>macOS binaries</dt><dd>${escapeHtml(state.environment?.bundledMacosBinDir || "Loading...")}</dd></div>
           <div><dt>Generated PDFs</dt><dd>${escapeHtml(state.environment?.generatedLabelsDir || "Loading...")}</dd></div>
           <div><dt>History CSV</dt><dd>${escapeHtml(state.environment?.historyPath || "Loading...")}</dd></div>
+          <div><dt>Support log</dt><dd>${escapeHtml(state.environment?.supportLogPath || "Loading...")}</dd></div>
         </dl>
       </section>
     </section>

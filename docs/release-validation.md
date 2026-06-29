@@ -49,6 +49,8 @@ signatures, and `latest.json`. Publish the draft only after hardware validation.
 - Select the thermal printer and print a normal label.
 - Print a calibration label and confirm the driver media size is correct.
 - Close and reopen the app; confirm history remains available.
+- Open Settings, click `Open Support Log`, and confirm command diagnostics are
+  written in the app data folder.
 - After publishing a newer release, click `Check Updates` and confirm the app
   installs the update or exits into the Windows updater flow.
 
@@ -65,6 +67,8 @@ signatures, and `latest.json`. Publish the draft only after hardware validation.
 - Print a calibration label and confirm the media size and orientation.
 - Close and reopen the app; confirm history remains available in the app data
   folder.
+- Open Settings, click `Open Support Log`, and confirm command diagnostics are
+  written in the app data folder.
 - After publishing a newer release, click `Check Updates` and confirm the app
   downloads, installs, and relaunches.
 

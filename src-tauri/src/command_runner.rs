@@ -41,6 +41,56 @@ pub fn data_root() -> PathBuf {
     platform_data_root().unwrap_or_else(project_root)
 }
 
+pub fn support_log_path() -> PathBuf {
+    data_root().join("support.log")
+}
+
+pub fn log_support_event(message: impl AsRef<str>) {
+    let path = support_log_path();
+    if let Some(parent) = path.parent() {
+        let _ = std::fs::create_dir_all(parent);
+    }
+    let line = format!(
+        "{} {}\n",
+        chrono::Local::now().format("%Y-%m-%d %H:%M:%S"),
+        message.as_ref()
+    );
+    let _ = std::fs::OpenOptions::new()
+        .create(true)
+        .append(true)
+        .open(path)
+        .and_then(|mut file| std::io::Write::write_all(&mut file, line.as_bytes()));
+}
+
+pub fn open_data_file(path: &Path) -> AppResult<()> {
+    let canonical_path = path.canonicalize().map_err(|error| {
+        AppError::new(
+            "Open Failed",
+            format!("Could not open file because it was not found:\n{error}"),
+        )
+    })?;
+    if !canonical_path.is_file() {
+        return Err(AppError::new(
+            "Open Failed",
+            format!("Path is not a file:\n{}", canonical_path.display()),
+        ));
+    }
+
+    let data_root = data_root().canonicalize().unwrap_or_else(|_| data_root());
+    if !canonical_path.starts_with(&data_root) {
+        log_support_event(format!(
+            "blocked open outside data root: {}",
+            canonical_path.display()
+        ));
+        return Err(AppError::new(
+            "Open Blocked",
+            "Only files created inside the iPhoneLabelPrinter data folder can be opened from the app.",
+        ));
+    }
+
+    open_path_with_platform(&canonical_path)
+}
+
 pub fn resolve_tool(name: &str) -> Option<PathBuf> {
     let suffix = if cfg!(windows) && !name.to_ascii_lowercase().ends_with(".exe") {
         ".exe"
@@ -69,6 +119,11 @@ pub fn run_executable(
     args: &[&str],
     timeout: Duration,
 ) -> AppResult<CommandOutput> {
+    log_support_event(format!(
+        "run command: {} {}",
+        executable.display(),
+        redacted_args(args).join(" ")
+    ));
     let mut command = Command::new(executable);
     command.args(args);
     command.stdout(Stdio::piped());
@@ -128,6 +183,63 @@ pub fn run_executable(
     }
 
     Ok(CommandOutput { stdout })
+}
+
+fn redacted_args(args: &[&str]) -> Vec<String> {
+    let mut redacted = Vec::with_capacity(args.len());
+    let mut redact_next = false;
+    for arg in args {
+        if redact_next {
+            redacted.push("[redacted]".to_string());
+            redact_next = false;
+            continue;
+        }
+        if *arg == "-u" || *arg == "--udid" {
+            redacted.push((*arg).to_string());
+            redact_next = true;
+            continue;
+        }
+        if arg.len() >= 24 && arg.chars().all(|character| character.is_ascii_hexdigit()) {
+            redacted.push("[redacted]".to_string());
+        } else {
+            redacted.push((*arg).to_string());
+        }
+    }
+    redacted
+}
+
+fn open_path_with_platform(path: &Path) -> AppResult<()> {
+    #[cfg(target_os = "macos")]
+    let mut command = {
+        let mut command = Command::new("open");
+        command.arg(path);
+        command
+    };
+
+    #[cfg(target_os = "linux")]
+    let mut command = {
+        let mut command = Command::new("xdg-open");
+        command.arg(path);
+        command
+    };
+
+    #[cfg(windows)]
+    let mut command = {
+        let mut command = Command::new("cmd");
+        command.args(["/C", "start", ""]);
+        command.arg(path);
+        command
+    };
+
+    command.stdout(Stdio::null());
+    command.stderr(Stdio::null());
+    command.spawn().map_err(|error| {
+        AppError::new(
+            "Open Failed",
+            format!("Could not open '{}': {error}", path.display()),
+        )
+    })?;
+    Ok(())
 }
 
 fn bundled_tool_dirs() -> Vec<PathBuf> {
@@ -355,6 +467,17 @@ mod tests {
         let message = missing_dependency_message("idevice_id");
         assert!(message.contains("libimobiledevice"));
         assert!(message.contains("idevice_id"));
+    }
+
+    #[test]
+    fn redacts_udids_from_support_logs() {
+        let args = redacted_args(&[
+            "-u",
+            "00008110ABCDEF1234567890ABCDEF1234567890",
+            "-k",
+            "ProductType",
+        ]);
+        assert_eq!(args, vec!["-u", "[redacted]", "-k", "ProductType"]);
     }
 
     #[cfg(target_os = "macos")]

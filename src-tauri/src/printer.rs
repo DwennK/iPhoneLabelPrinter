@@ -1,6 +1,6 @@
 use crate::command_runner::{resolve_tool, run_executable, run_tool};
 use crate::error::{AppError, AppResult};
-use crate::types::{PrintRequest, PrinterInfo};
+use crate::types::{PrintRequest, PrintScaleMode, PrinterInfo};
 use serde::Deserialize;
 use std::path::{Path, PathBuf};
 use std::time::Duration;
@@ -77,12 +77,12 @@ fn print_cups(request: &PrintRequest) -> AppResult<String> {
         format_mm(request.label_width_mm),
         format_mm(request.label_height_mm)
     );
-    let orientation = if request.orientation == "landscape" {
+    let orientation = if request.orientation.is_landscape() {
         "orientation-requested=4"
     } else {
         "orientation-requested=3"
     };
-    let scaling = if normalized_scale_mode(&request.print_scale_mode) == "fit" {
+    let scaling = if request.print_scale_mode.is_fit() {
         "fit-to-page"
     } else {
         "scaling=100"
@@ -185,7 +185,7 @@ fn print_windows(request: &PrintRequest) -> AppResult<String> {
             "SumatraPDF was not found. Keep assets\\bin\\win32\\SumatraPDF.exe with the app or add SumatraPDF to PATH.",
         )
     })?;
-    let orientation = if request.orientation == "landscape" {
+    let orientation = if request.orientation.is_landscape() {
         "landscape"
     } else {
         "portrait"
@@ -196,7 +196,7 @@ fn print_windows(request: &PrintRequest) -> AppResult<String> {
         format_mm(request.label_height_mm)
     );
     let settings = [
-        normalized_scale_mode(&request.print_scale_mode),
+        normalized_scale_mode(request.print_scale_mode),
         orientation,
         paper.as_str(),
         "ignore-pdf-print-settings",
@@ -237,11 +237,10 @@ fn sort_printers(printers: &mut [PrinterInfo]) {
     });
 }
 
-fn normalized_scale_mode(value: &str) -> &'static str {
-    if value.eq_ignore_ascii_case("fit") {
-        "fit"
-    } else {
-        "noscale"
+fn normalized_scale_mode(value: PrintScaleMode) -> &'static str {
+    match value {
+        PrintScaleMode::Fit => "fit",
+        PrintScaleMode::Noscale => "noscale",
     }
 }
 
@@ -265,8 +264,7 @@ mod tests {
 
     #[test]
     fn normalizes_print_scale_modes() {
-        assert_eq!(normalized_scale_mode("fit"), "fit");
-        assert_eq!(normalized_scale_mode("noscale"), "noscale");
-        assert_eq!(normalized_scale_mode("unexpected"), "noscale");
+        assert_eq!(normalized_scale_mode(PrintScaleMode::Fit), "fit");
+        assert_eq!(normalized_scale_mode(PrintScaleMode::Noscale), "noscale");
     }
 }

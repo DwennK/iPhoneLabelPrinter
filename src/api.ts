@@ -1,8 +1,8 @@
 import { invoke } from "@tauri-apps/api/core";
-import { openPath } from "@tauri-apps/plugin-opener";
 import { relaunch } from "@tauri-apps/plugin-process";
 import { check } from "@tauri-apps/plugin-updater";
 import type {
+  CleanupHistoryResponse,
   CleanupLabelsResponse,
   ConnectedDevice,
   EnvironmentInfo,
@@ -79,4 +79,14 @@ export function cleanupGeneratedLabels(retentionDays: number) {
   });
 }
 
-export { check, openPath, relaunch };
+export function cleanupHistory(retentionDays: number) {
+  return invoke<CleanupHistoryResponse>("cleanup_history", {
+    request: { retentionDays },
+  });
+}
+
+export function openDataFile(path: string) {
+  return invoke<void>("open_data_file", { path });
+}
+
+export { check, relaunch };

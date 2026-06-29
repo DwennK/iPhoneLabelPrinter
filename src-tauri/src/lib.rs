@@ -9,10 +9,12 @@ mod types;
 
 use crate::error::{AppError, AppResult};
 use crate::types::{
-    CalibrationLabelRequest, CleanupLabelsRequest, CleanupLabelsResponse, ConnectedDevice,
-    EnvironmentInfo, ExportHistoryRequest, ExportHistoryResponse, GenerateLabelRequest,
-    GenerateLabelResponse, HistoryEntry, IPhoneInfo, PrintRequest, PrinterInfo,
+    CalibrationLabelRequest, CleanupHistoryResponse, CleanupLabelsRequest, CleanupLabelsResponse,
+    ConnectedDevice, EnvironmentInfo, ExportHistoryRequest, ExportHistoryResponse,
+    GenerateLabelRequest, GenerateLabelResponse, HistoryEntry, IPhoneInfo, PrintRequest,
+    PrinterInfo,
 };
+use std::path::Path;
 
 async fn blocking<T, F>(work: F) -> AppResult<T>
 where
@@ -64,6 +66,15 @@ async fn cleanup_generated_labels(
 }
 
 #[tauri::command]
+async fn cleanup_history(request: CleanupLabelsRequest) -> AppResult<CleanupHistoryResponse> {
+    blocking(move || {
+        let deleted_count = history::cleanup_history(request.retention_days)?;
+        Ok(CleanupHistoryResponse { deleted_count })
+    })
+    .await
+}
+
+#[tauri::command]
 async fn print_label(request: PrintRequest) -> AppResult<String> {
     blocking(move || {
         let message = printer::print_label(&request)?;
@@ -87,6 +98,11 @@ async fn export_history(request: ExportHistoryRequest) -> AppResult<ExportHistor
 }
 
 #[tauri::command]
+async fn open_data_file(path: String) -> AppResult<()> {
+    blocking(move || command_runner::open_data_file(Path::new(&path))).await
+}
+
+#[tauri::command]
 fn environment_info() -> EnvironmentInfo {
     EnvironmentInfo {
         project_root: command_runner::project_root().display().to_string(),
@@ -99,13 +115,13 @@ fn environment_info() -> EnvironmentInfo {
             .to_string(),
         generated_labels_dir: label::generated_labels_dir().display().to_string(),
         history_path: history::history_path().display().to_string(),
+        support_log_path: command_runner::support_log_path().display().to_string(),
     }
 }
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
-        .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_process::init())
         .plugin(tauri_plugin_updater::Builder::new().build())
         .invoke_handler(tauri::generate_handler![
@@ -116,9 +132,11 @@ pub fn run() {
             generate_label,
             generate_calibration_label,
             cleanup_generated_labels,
+            cleanup_history,
             print_label,
             read_history,
             export_history,
+            open_data_file,
             environment_info,
         ])
         .run(tauri::generate_context!())
