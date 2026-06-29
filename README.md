@@ -38,13 +38,16 @@ macOS:
 - `assets/bin/macos-arm64` is intentionally kept in the repo and bundled by
   Tauri for Apple Silicon Macs. It contains `idevice_id`, `ideviceinfo`,
   `idevicediagnostics`, and the required `.dylib` files.
+- Intel Mac release builds are intentionally disabled until a matching
+  `assets/bin/macos-x64` bundle is added.
 - For local development, Homebrew `libimobiledevice` can still be used as a
   fallback:
 
   ```bash
   brew install libimobiledevice
   ```
-- Intel Mac support requires adding a matching `assets/bin/macos-x64` bundle.
+- Intel Mac support requires adding a matching `assets/bin/macos-x64` bundle
+  and re-enabling the macOS Intel job in `.github/workflows/release.yml`.
 
 Windows:
 

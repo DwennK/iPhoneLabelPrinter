@@ -52,7 +52,7 @@ signatures, and `latest.json`. Publish the draft only after hardware validation.
 - After publishing a newer release, click `Check Updates` and confirm the app
   installs the update or exits into the Windows updater flow.
 
-## macOS Shop Machine
+## macOS Apple Silicon Shop Machine
 
 - Install the DMG from the draft release asset.
 - Confirm `assets/bin/macos-arm64` tools are bundled by scanning a connected
