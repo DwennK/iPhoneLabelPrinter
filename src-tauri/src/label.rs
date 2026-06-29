@@ -55,6 +55,7 @@ pub fn generate_label(request: &GenerateLabelRequest) -> AppResult<GenerateLabel
         label_width_mm,
         label_height_mm,
         &request.options.label_orientation,
+        &request.options.print_scale_mode,
         now,
     )?;
 
@@ -367,6 +368,7 @@ fn write_label_pdf(
         );
     }
 
+    validate_render_bounds(width, height, content.bounds())?;
     write_pdf(pdf_path, width, height, &content.finish())
 }
 
@@ -451,6 +453,7 @@ fn write_calibration_label_pdf(
         5.0,
     );
 
+    validate_render_bounds(width, height, content.bounds())?;
     write_pdf(pdf_path, width, height, &content.finish())
 }
 
@@ -471,17 +474,40 @@ impl FontFace {
 
 struct PdfContent {
     body: String,
+    bounds: Vec<DrawBounds>,
+}
+
+#[derive(Debug, Clone, Copy)]
+struct DrawBounds {
+    x: f64,
+    y: f64,
+    width: f64,
+    height: f64,
 }
 
 impl PdfContent {
     fn new() -> Self {
         Self {
             body: String::new(),
+            bounds: Vec::new(),
         }
+    }
+
+    fn bounds(&self) -> &[DrawBounds] {
+        &self.bounds
     }
 
     fn finish(self) -> String {
         self.body
+    }
+
+    fn push_bounds(&mut self, x: f64, y: f64, width: f64, height: f64) {
+        self.bounds.push(DrawBounds {
+            x,
+            y,
+            width,
+            height,
+        });
     }
 
     fn set_fill_black(&mut self) {
@@ -497,6 +523,7 @@ impl PdfContent {
     }
 
     fn rect_fill(&mut self, x: f64, y: f64, width: f64, height: f64) {
+        self.push_bounds(x, y, width, height);
         let _ = writeln!(
             self.body,
             "{} {} {} {} re f",
@@ -508,6 +535,7 @@ impl PdfContent {
     }
 
     fn rect_stroke(&mut self, x: f64, y: f64, width: f64, height: f64) {
+        self.push_bounds(x, y, width, height);
         let _ = writeln!(
             self.body,
             "{} {} {} {} re S",
@@ -519,6 +547,7 @@ impl PdfContent {
     }
 
     fn line(&mut self, x1: f64, y1: f64, x2: f64, y2: f64) {
+        self.push_bounds(x1.min(x2), y1.min(y2), (x1 - x2).abs(), (y1 - y2).abs());
         let _ = writeln!(
             self.body,
             "{} {} m {} {} l S",
@@ -533,6 +562,7 @@ impl PdfContent {
         if text.trim().is_empty() {
             return;
         }
+        self.push_bounds(x, y, estimate_text_width(text, size), size);
         let _ = writeln!(
             self.body,
             "BT /{} {} Tf {} {} Td ({}) Tj ET",
@@ -587,6 +617,7 @@ impl PdfContent {
     }
 
     fn draw_qr(&mut self, data: &str, x: f64, y: f64, size: f64) -> AppResult<()> {
+        self.push_bounds(x, y, size, size);
         let code = QrCode::new(data.as_bytes()).map_err(|error| {
             AppError::new(
                 "Label Generation Failed",
@@ -614,7 +645,8 @@ impl PdfContent {
 fn write_pdf(path: &Path, width: f64, height: f64, content: &str) -> AppResult<()> {
     let content_bytes = content.as_bytes();
     let objects = vec![
-        "<< /Type /Catalog /Pages 2 0 R >>".to_string(),
+        "<< /Type /Catalog /Pages 2 0 R /ViewerPreferences << /PrintScaling /None >> >>"
+            .to_string(),
         "<< /Type /Pages /Kids [3 0 R] /Count 1 >>".to_string(),
         format!(
             "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 {} {}] /Resources << /Font << /F1 5 0 R /F2 6 0 R >> >> /Contents 4 0 R >>",
@@ -654,6 +686,32 @@ fn write_pdf(path: &Path, width: f64, height: f64, content: &str) -> AppResult<(
     );
 
     fs::write(path, pdf)?;
+    Ok(())
+}
+
+fn validate_render_bounds(
+    page_width: f64,
+    page_height: f64,
+    bounds: &[DrawBounds],
+) -> AppResult<()> {
+    const EPSILON: f64 = 0.75;
+    for bound in bounds {
+        if bound.x < -EPSILON
+            || bound.y < -EPSILON
+            || bound.x + bound.width > page_width + EPSILON
+            || bound.y + bound.height > page_height + EPSILON
+        {
+            return Err(AppError::new(
+                "Label Generation Failed",
+                format!(
+                    "Rendered label content exceeds the page bounds: {:?} on {} x {} pt page",
+                    bound,
+                    number(page_width),
+                    number(page_height)
+                ),
+            ));
+        }
+    }
     Ok(())
 }
 
@@ -825,6 +883,68 @@ mod tests {
             &path,
             LABEL_WIDTH_MM,
             LABEL_HEIGHT_MM,
+            Local::now(),
+        )
+        .unwrap();
+        assert_eq!(&fs::read(&path).unwrap()[..4], b"%PDF");
+        let _ = fs::remove_dir_all(dir);
+    }
+
+    #[test]
+    fn validates_landscape_render_bounds_for_long_fields() {
+        let dir = std::env::temp_dir().join(format!(
+            "iphone_label_bounds_landscape_{}",
+            std::process::id()
+        ));
+        let _ = fs::remove_dir_all(&dir);
+        fs::create_dir_all(&dir).unwrap();
+        let path = dir.join("label.pdf");
+        write_label_pdf(
+            &IPhoneInfo {
+                marketing_model: "iPhone 17 Pro Max Extremely Long Repair Desk Name".to_string(),
+                technical_model: "iPhone18,2".to_string(),
+                storage: "1024 GB".to_string(),
+                color: "Deep Ultramarine Titanium With Very Long Color Name".to_string(),
+                imei: "35 502642 9560655".to_string(),
+                serial_number: "ABC123456789XYZ".to_string(),
+                ios_version: "18.5.1".to_string(),
+                battery_health: "76% (812 cycles)".to_string(),
+                ..IPhoneInfo::default()
+            },
+            &path,
+            LABEL_WIDTH_MM,
+            LABEL_HEIGHT_MM,
+            Local::now(),
+        )
+        .unwrap();
+        assert_eq!(&fs::read(&path).unwrap()[..4], b"%PDF");
+        let _ = fs::remove_dir_all(dir);
+    }
+
+    #[test]
+    fn validates_portrait_render_bounds_for_long_fields() {
+        let dir = std::env::temp_dir().join(format!(
+            "iphone_label_bounds_portrait_{}",
+            std::process::id()
+        ));
+        let _ = fs::remove_dir_all(&dir);
+        fs::create_dir_all(&dir).unwrap();
+        let path = dir.join("label.pdf");
+        write_label_pdf(
+            &IPhoneInfo {
+                marketing_model: "iPad Pro 13-inch Cellular Very Long Variant".to_string(),
+                technical_model: "iPad16,6".to_string(),
+                storage: "2048 GB".to_string(),
+                color: "Silver With Long Manual Verification Note".to_string(),
+                imei: "35 502642 9560655".to_string(),
+                serial_number: "LONGSERIALNUMBER12345".to_string(),
+                ios_version: "18.5.1".to_string(),
+                battery_health: "89% (312 cycles)".to_string(),
+                ..IPhoneInfo::default()
+            },
+            &path,
+            LABEL_HEIGHT_MM,
+            LABEL_WIDTH_MM,
             Local::now(),
         )
         .unwrap();

@@ -2,7 +2,7 @@ use crate::command_runner::data_root;
 use crate::error::{AppError, AppResult};
 use crate::types::{ExportHistoryRequest, ExportHistoryResponse, HistoryEntry, IPhoneInfo};
 use chrono::{DateTime, Local};
-use std::fs;
+use std::fs::{self, File};
 use std::path::{Path, PathBuf};
 
 const HISTORY_FIELDS: &[&str] = &[
@@ -22,6 +22,7 @@ const HISTORY_FIELDS: &[&str] = &[
     "label_width_mm",
     "label_height_mm",
     "label_orientation",
+    "print_scale_mode",
 ];
 
 pub fn history_path() -> PathBuf {
@@ -38,6 +39,7 @@ pub fn append_generated_entry(
     label_width_mm: f64,
     label_height_mm: f64,
     label_orientation: &str,
+    print_scale_mode: &str,
     created_at: DateTime<Local>,
 ) -> AppResult<HistoryEntry> {
     let mut entries = read_history_chronological(&history_path())?;
@@ -56,6 +58,7 @@ pub fn append_generated_entry(
         label_width_mm: format_mm(label_width_mm),
         label_height_mm: format_mm(label_height_mm),
         label_orientation: label_orientation.to_string(),
+        print_scale_mode: print_scale_mode.to_string(),
         ..HistoryEntry::default()
     };
     entries.push(entry.clone());
@@ -138,12 +141,14 @@ fn write_history(path: &Path, entries: &[HistoryEntry]) -> AppResult<()> {
     if let Some(parent) = path.parent() {
         fs::create_dir_all(parent)?;
     }
-    let mut writer = csv::Writer::from_path(path).map_err(|error| {
+    let temp_path = temp_history_path(path);
+    let file = File::create(&temp_path).map_err(|error| {
         AppError::new(
             "History Error",
             format!("Could not write label history:\n{error}"),
         )
     })?;
+    let mut writer = csv::Writer::from_writer(file);
     writer.write_record(HISTORY_FIELDS).map_err(|error| {
         AppError::new(
             "History Error",
@@ -164,6 +169,20 @@ fn write_history(path: &Path, entries: &[HistoryEntry]) -> AppResult<()> {
             format!("Could not flush label history:\n{error}"),
         )
     })?;
+    let file = writer.into_inner().map_err(|error| {
+        AppError::new(
+            "History Error",
+            format!("Could not finish label history write:\n{error}"),
+        )
+    })?;
+    file.sync_all().map_err(|error| {
+        AppError::new(
+            "History Error",
+            format!("Could not sync label history:\n{error}"),
+        )
+    })?;
+    drop(file);
+    replace_history_file(path, &temp_path)?;
     Ok(())
 }
 
@@ -186,10 +205,11 @@ fn entry_from_row(row: &std::collections::HashMap<String, String>) -> HistoryEnt
         label_width_mm: get(HISTORY_FIELDS[13]),
         label_height_mm: get(HISTORY_FIELDS[14]),
         label_orientation: get(HISTORY_FIELDS[15]),
+        print_scale_mode: get(HISTORY_FIELDS[16]),
     }
 }
 
-fn entry_fields(entry: &HistoryEntry) -> [&str; 16] {
+fn entry_fields(entry: &HistoryEntry) -> [&str; 17] {
     [
         &entry.created_at,
         &entry.printed_at,
@@ -207,7 +227,55 @@ fn entry_fields(entry: &HistoryEntry) -> [&str; 16] {
         &entry.label_width_mm,
         &entry.label_height_mm,
         &entry.label_orientation,
+        &entry.print_scale_mode,
     ]
+}
+
+fn temp_history_path(path: &Path) -> PathBuf {
+    path.with_file_name(format!(
+        "{}.tmp",
+        path.file_name()
+            .and_then(|name| name.to_str())
+            .unwrap_or("label_history.csv")
+    ))
+}
+
+fn backup_history_path(path: &Path) -> PathBuf {
+    path.with_file_name(format!(
+        "{}.bak",
+        path.file_name()
+            .and_then(|name| name.to_str())
+            .unwrap_or("label_history.csv")
+    ))
+}
+
+fn replace_history_file(path: &Path, temp_path: &Path) -> AppResult<()> {
+    if path.exists() {
+        fs::copy(path, backup_history_path(path)).map_err(|error| {
+            AppError::new(
+                "History Error",
+                format!("Could not back up existing label history:\n{error}"),
+            )
+        })?;
+    }
+
+    #[cfg(windows)]
+    if path.exists() {
+        fs::remove_file(path).map_err(|error| {
+            AppError::new(
+                "History Error",
+                format!("Could not replace existing label history:\n{error}"),
+            )
+        })?;
+    }
+
+    fs::rename(temp_path, path).map_err(|error| {
+        AppError::new(
+            "History Error",
+            format!("Could not replace label history:\n{error}"),
+        )
+    })?;
+    Ok(())
 }
 
 fn timestamp(value: DateTime<Local>) -> String {
@@ -245,5 +313,30 @@ mod tests {
     fn format_mm_omits_trailing_decimal_for_whole_numbers() {
         assert_eq!(format_mm(62.0), "62");
         assert_eq!(format_mm(40.5), "40.5");
+    }
+
+    #[test]
+    fn reads_legacy_history_and_writes_backup() {
+        let dir = std::env::temp_dir().join(format!("iphone_history_test_{}", std::process::id()));
+        let _ = fs::remove_dir_all(&dir);
+        fs::create_dir_all(&dir).unwrap();
+        let path = dir.join("label_history.csv");
+        fs::write(
+            &path,
+            "created_at,printed_at,marketing_model,technical_model,storage,color,imei,serial_number,device_name,ios_version,battery_health,printer_name,pdf_path,label_width_mm,label_height_mm,label_orientation\n2026-01-01 10:00:00,,iPhone 15,\"iPhone15,4\",128 GB,Blue,355026429560655,ABC123,Desk iPhone,18.5,86%,,/tmp/label.pdf,62,40,landscape\n",
+        )
+        .unwrap();
+
+        let mut entries = read_history_chronological(&path).unwrap();
+        assert_eq!(entries.len(), 1);
+        assert_eq!(entries[0].print_scale_mode, "");
+        entries[0].print_scale_mode = "noscale".to_string();
+        write_history(&path, &entries).unwrap();
+
+        assert!(backup_history_path(&path).is_file());
+        let rewritten = fs::read_to_string(&path).unwrap();
+        assert!(rewritten.contains("print_scale_mode"));
+        assert!(rewritten.contains("noscale"));
+        let _ = fs::remove_dir_all(dir);
     }
 }

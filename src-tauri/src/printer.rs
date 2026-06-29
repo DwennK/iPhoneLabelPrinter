@@ -82,6 +82,11 @@ fn print_cups(request: &PrintRequest) -> AppResult<String> {
     } else {
         "orientation-requested=3"
     };
+    let scaling = if normalized_scale_mode(&request.print_scale_mode) == "fit" {
+        "fit-to-page"
+    } else {
+        "scaling=100"
+    };
     let output = run_tool(
         "lp",
         &[
@@ -92,7 +97,7 @@ fn print_cups(request: &PrintRequest) -> AppResult<String> {
             "-o",
             orientation,
             "-o",
-            "scaling=100",
+            scaling,
             &request.pdf_path,
         ],
         Duration::from_secs(12),
@@ -181,10 +186,22 @@ fn print_windows(request: &PrintRequest) -> AppResult<String> {
         )
     })?;
     let orientation = if request.orientation == "landscape" {
-        "noscale,landscape"
+        "landscape"
     } else {
-        "noscale,portrait"
+        "portrait"
     };
+    let paper = format!(
+        "paper={}mm x {}mm",
+        format_mm(request.label_width_mm),
+        format_mm(request.label_height_mm)
+    );
+    let settings = [
+        normalized_scale_mode(&request.print_scale_mode),
+        orientation,
+        paper.as_str(),
+        "ignore-pdf-print-settings",
+    ]
+    .join(",");
     run_executable(
         &sumatra,
         &[
@@ -192,7 +209,7 @@ fn print_windows(request: &PrintRequest) -> AppResult<String> {
             &request.printer_name,
             "-silent",
             "-print-settings",
-            orientation,
+            &settings,
             &request.pdf_path,
         ],
         Duration::from_secs(30),
@@ -220,6 +237,14 @@ fn sort_printers(printers: &mut [PrinterInfo]) {
     });
 }
 
+fn normalized_scale_mode(value: &str) -> &'static str {
+    if value.eq_ignore_ascii_case("fit") {
+        "fit"
+    } else {
+        "noscale"
+    }
+}
+
 fn format_mm(value: f64) -> String {
     if (value.fract()).abs() < f64::EPSILON {
         format!("{}", value as i64)
@@ -236,5 +261,12 @@ mod tests {
     fn formats_integer_and_decimal_media_sizes() {
         assert_eq!(format_mm(62.0), "62");
         assert_eq!(format_mm(40.5), "40.5");
+    }
+
+    #[test]
+    fn normalizes_print_scale_modes() {
+        assert_eq!(normalized_scale_mode("fit"), "fit");
+        assert_eq!(normalized_scale_mode("noscale"), "noscale");
+        assert_eq!(normalized_scale_mode("unexpected"), "noscale");
     }
 }

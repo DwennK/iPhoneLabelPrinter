@@ -41,6 +41,7 @@ pub struct LabelOptions {
     pub label_width_mm: f64,
     pub label_height_mm: f64,
     pub label_orientation: String,
+    pub print_scale_mode: String,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -82,6 +83,7 @@ pub struct PrintRequest {
     pub label_width_mm: f64,
     pub label_height_mm: f64,
     pub orientation: String,
+    pub print_scale_mode: String,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
@@ -103,6 +105,7 @@ pub struct HistoryEntry {
     pub label_width_mm: String,
     pub label_height_mm: String,
     pub label_orientation: String,
+    pub print_scale_mode: String,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
