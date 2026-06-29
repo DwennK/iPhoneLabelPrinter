@@ -476,6 +476,34 @@ dd {
   font-weight: 600;
 }
 
+.profile-box {
+  display: grid;
+  gap: 10px;
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid var(--border);
+}
+
+.profile-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.profile-header span {
+  color: var(--text-muted);
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.profile-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
 .history-toolbar {
   position: sticky;
   top: 0;
@@ -623,7 +651,8 @@ tbody tr.is-selected {
   }
 
   .form-grid,
-  .settings-grid {
+  .settings-grid,
+  .profile-grid {
     grid-template-columns: 1fr;
   }
 }
