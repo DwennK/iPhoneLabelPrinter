@@ -420,14 +420,19 @@ fn is_executable_candidate(path: &Path) -> bool {
     if !path.is_file() {
         return false;
     }
-    if cfg!(windows) {
-        return true;
+
+    #[cfg(windows)]
+    {
+        true
     }
 
-    use std::os::unix::fs::PermissionsExt;
-    path.metadata()
-        .map(|metadata| metadata.permissions().mode() & 0o111 != 0)
-        .unwrap_or(false)
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        path.metadata()
+            .map(|metadata| metadata.permissions().mode() & 0o111 != 0)
+            .unwrap_or(false)
+    }
 }
 
 fn first_non_empty<'a>(values: impl IntoIterator<Item = &'a str>) -> Option<&'a str> {
