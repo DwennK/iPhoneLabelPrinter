@@ -56,10 +56,12 @@ export function updateAlerts(app: HTMLElement, state: AppState) {
   const container = app.querySelector<HTMLDivElement>("#alerts");
   if (!container) return;
   if (!alerts.length) {
+    container.hidden = true;
     container.className = "alerts is-ok";
-    container.textContent = "No alerts.";
+    container.textContent = "";
     return;
   }
+  container.hidden = false;
   container.className = "alerts is-warning";
   container.innerHTML = alerts.map((alert) => `<div>${escapeHtml(alert)}</div>`).join("");
 }
@@ -163,81 +165,66 @@ function tabButton(state: AppState, tab: TabKey, label: string): string {
 
 function labelTab(state: AppState): string {
   const effective = effectiveLabelSize(state);
-  const profile = selectedPrinterProfile(state);
   return `
     <section class="workspace label-workspace">
       <section class="panel connection-panel">
-        <div class="panel-heading">
-          <h2>Device connection</h2>
+        <div class="panel-heading compact-heading">
+          <h2>Connection</h2>
           <button class="primary" data-action="scan" type="button" ${disabledIfBusy(state)}>Scan Device</button>
         </div>
         <p class="connection-status">${escapeHtml(state.status)}</p>
         ${deviceSelector(state)}
+        <div id="alerts" class="alerts inline-alerts"></div>
       </section>
 
-      <section class="panel checks-panel">
-        <h2>Readiness checks</h2>
-        <div id="alerts" class="alerts"></div>
-      </section>
-
-      <section class="panel device-panel">
-        <div class="panel-heading">
-          <h2>Device Information</h2>
-          <button class="secondary" data-action="clear" type="button" ${disabledIfBusy(state)}>Clear</button>
-        </div>
-        <div class="form-grid">
-          ${field(state, "marketingModel", "Model")}
-          ${field(state, "technicalModel", "Technical model")}
-          ${field(state, "storage", "Storage")}
-          ${field(state, "color", "Color", "text", "color-options")}
-          ${field(state, "imei", "IMEI")}
-          ${field(state, "serialNumber", "Serial number")}
-          ${field(state, "deviceName", "Device name")}
-          ${field(state, "iosVersion", "OS version")}
-          ${field(state, "batteryHealth", "Battery health")}
-        </div>
-        <datalist id="color-options">
-          ${state.colorOptions.map((color) => `<option value="${escapeAttribute(color)}"></option>`).join("")}
-        </datalist>
-      </section>
-
-      <aside class="panel print-panel">
-        <div class="panel-heading">
-          <h2>Print queue</h2>
-          <span class="size-pill">${effective.labelWidthMm} x ${effective.labelHeightMm} mm</span>
-        </div>
-        <dl class="label-summary">
-          <div><dt>Model</dt><dd>${escapeHtml(state.info.marketingModel || "Manual entry needed")}</dd></div>
-          <div><dt>Variant</dt><dd>${escapeHtml([state.info.storage, state.info.color].filter(Boolean).join(" - ") || "Missing")}</dd></div>
-          <div><dt>Identifier</dt><dd>${escapeHtml(primaryIdentifier(state))}</dd></div>
-          <div><dt>Battery</dt><dd>${escapeHtml(state.info.batteryHealth || "Optional")}</dd></div>
-        </dl>
-        ${renderLabelPreview(state)}
-        <div class="pdf-box">
-          <span class="muted">PDF</span>
-          <strong>${escapeHtml(state.generatedPdfPath || "No label generated yet.")}</strong>
-          <button class="secondary" data-action="open-pdf" type="button" ${state.generatedPdfPath ? "" : "disabled"}>Open PDF</button>
-        </div>
-        <label class="field full">
-          <span>Printer</span>
-          <select data-printer ${disabledIfBusy(state)}>
-            ${printerOptions(state)}
-          </select>
-        </label>
-        <div class="profile-box">
-          <div class="profile-header">
-            <span>Printer profile</span>
-            <button class="secondary" data-action="save-printer-profile" type="button" ${state.selectedPrinter ? "" : "disabled"}>Save Profile</button>
+      <div class="technician-grid">
+        <section class="panel device-panel">
+          <div class="panel-heading">
+            <h2>Device Information</h2>
+            <button class="secondary" data-action="clear" type="button" ${disabledIfBusy(state)}>Clear</button>
           </div>
-          ${profileControls(profile)}
+          <div class="form-grid">
+            ${field(state, "marketingModel", "Model")}
+            ${field(state, "technicalModel", "Technical model")}
+            ${field(state, "storage", "Storage")}
+            ${field(state, "color", "Color", "text", "color-options")}
+            ${field(state, "imei", "IMEI")}
+            ${field(state, "serialNumber", "Serial number")}
+            ${field(state, "deviceName", "Device name")}
+            ${field(state, "iosVersion", "OS version")}
+            ${field(state, "batteryHealth", "Battery health")}
+          </div>
+          <datalist id="color-options">
+            ${state.colorOptions.map((color) => `<option value="${escapeAttribute(color)}"></option>`).join("")}
+          </datalist>
+        </section>
+
+        <section class="panel preview-panel">
+          <div class="panel-heading">
+            <h2>Label Preview</h2>
+            <span class="size-pill">${effective.labelWidthMm} x ${effective.labelHeightMm} mm</span>
+          </div>
+          ${renderLabelPreview(state)}
+          <div class="pdf-line">
+            <strong>${escapeHtml(state.generatedPdfPath || "No label generated yet.")}</strong>
+            <button class="secondary" data-action="open-pdf" type="button" ${state.generatedPdfPath ? "" : "disabled"}>Open PDF</button>
+          </div>
+        </section>
+      </div>
+
+      <section class="panel print-dock">
+        <div class="printer-strip">
+          <span>Printer</span>
+          <strong>${escapeHtml(state.selectedPrinter || "Not selected")}</strong>
+          <button class="secondary compact-button" data-tab="settings" type="button">Settings</button>
         </div>
+        <p class="action-status">${escapeHtml(summaryStatus(state))}</p>
         <div class="button-row">
-          <button class="secondary" data-action="refresh-printers" type="button" ${disabledIfBusy(state)}>Refresh Printers</button>
-          <button class="secondary" data-action="print-test-label" type="button" ${disabledIfBusy(state)}>Print Calibration</button>
+          <button class="secondary" data-action="clear" type="button" ${disabledIfBusy(state)}>Clear</button>
           <button class="primary" data-action="generate" type="button" ${disabledIfBusy(state)}>Generate Label</button>
           <button class="primary strong" data-action="print" type="button" ${disabledIfBusy(state)}>Print Label</button>
         </div>
-      </aside>
+      </section>
     </section>
   `;
 }
@@ -374,10 +361,30 @@ function historyRow(entry: HistoryEntry, index: number): string {
 }
 
 function settingsTab(state: AppState): string {
+  const profile = selectedPrinterProfile(state);
   return `
     <section class="workspace settings-layout">
-      <section class="panel">
-        <h2>Default Label Profile</h2>
+      <section class="panel settings-primary">
+        <div class="panel-heading">
+          <h2>Printer & label</h2>
+          <button class="secondary" data-action="refresh-printers" type="button" ${disabledIfBusy(state)}>Refresh Printers</button>
+        </div>
+        <div class="settings-grid">
+          <label class="field full">
+            <span>Selected printer</span>
+            <select data-printer ${disabledIfBusy(state)}>
+              ${printerOptions(state)}
+            </select>
+          </label>
+          ${profileControls(profile)}
+        </div>
+        <div class="button-row">
+          <button class="secondary" data-action="print-test-label" type="button" ${disabledIfBusy(state)}>Print Calibration</button>
+          <button class="primary" data-action="save-printer-profile" type="button" ${state.selectedPrinter ? "" : "disabled"}>Save Printer Profile</button>
+        </div>
+      </section>
+      <section class="panel settings-secondary">
+        <h2>Fallback defaults</h2>
         <div class="settings-grid">
           <label class="field">
             <span>Width</span>
@@ -413,8 +420,8 @@ function settingsTab(state: AppState): string {
           <button class="primary" data-action="save-settings" type="button">Save Settings</button>
         </div>
       </section>
-      <section class="panel">
-        <h2>System Paths</h2>
+      <details class="panel system-details">
+        <summary>System paths</summary>
         <dl class="env-list">
           <div><dt>Project root</dt><dd>${escapeHtml(state.environment?.projectRoot || "Loading...")}</dd></div>
           <div><dt>Data folder</dt><dd>${escapeHtml(state.environment?.dataRoot || "Loading...")}</dd></div>
@@ -424,7 +431,7 @@ function settingsTab(state: AppState): string {
           <div><dt>History CSV</dt><dd>${escapeHtml(state.environment?.historyPath || "Loading...")}</dd></div>
           <div><dt>Support log</dt><dd>${escapeHtml(state.environment?.supportLogPath || "Loading...")}</dd></div>
         </dl>
-      </section>
+      </details>
     </section>
   `;
 }
