@@ -508,6 +508,45 @@ mod tests {
     }
 
     #[test]
+    fn tauri_bundle_resources_include_required_tool_dirs() {
+        let config_path = project_root().join("src-tauri").join("tauri.conf.json");
+        let config = std::fs::read_to_string(config_path).expect("read tauri config");
+        let config: serde_json::Value = serde_json::from_str(&config).expect("parse tauri config");
+        let resources = config
+            .pointer("/bundle/resources")
+            .and_then(serde_json::Value::as_object)
+            .expect("bundle.resources should map source folders to resource folders");
+
+        assert_eq!(
+            resources
+                .get("../assets/bin/macos-arm64/")
+                .and_then(serde_json::Value::as_str),
+            Some("macos-arm64")
+        );
+        assert_eq!(
+            resources
+                .get("../assets/bin/win32/")
+                .and_then(serde_json::Value::as_str),
+            Some("win32")
+        );
+
+        for relative_path in [
+            "assets/bin/macos-arm64/idevice_id",
+            "assets/bin/macos-arm64/ideviceinfo",
+            "assets/bin/macos-arm64/idevicediagnostics",
+            "assets/bin/win32/idevice_id.exe",
+            "assets/bin/win32/ideviceinfo.exe",
+            "assets/bin/win32/idevicediagnostics.exe",
+            "assets/bin/win32/SumatraPDF.exe",
+        ] {
+            assert!(
+                project_root().join(relative_path).is_file(),
+                "missing bundled tool source: {relative_path}"
+            );
+        }
+    }
+
+    #[test]
     fn redacts_udids_from_support_logs() {
         let args = redacted_args(&[
             "-u",

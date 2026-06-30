@@ -35,10 +35,10 @@
       "icons/icon.ico",
       "icons/icon.png"
     ],
-    "resources": [
-      "../assets/bin/macos-arm64",
-      "../assets/bin/win32"
-    ]
+    "resources": {
+      "../assets/bin/macos-arm64/": "macos-arm64",
+      "../assets/bin/win32/": "win32"
+    }
   },
   "plugins": {
     "updater": {
