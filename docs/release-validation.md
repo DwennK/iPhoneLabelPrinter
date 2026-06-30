@@ -1,7 +1,7 @@
 # Release Validation
 
-Run this checklist before publishing a draft GitHub Release. The CI workflow can
-prove that the app builds and packages, but it cannot validate USB trust prompts,
+Run this checklist after publishing a GitHub Release. The CI workflow can prove
+that the app builds and packages, but it cannot validate USB trust prompts,
 printer drivers, or the physical thermal media.
 
 ## GitHub Release Setup
@@ -33,12 +33,12 @@ git push origin HEAD
 git push origin vx.y.z
 ```
 
-The workflow creates a draft GitHub Release with macOS, Windows, Linux, updater
-signatures, and `latest.json`. Publish the draft only after hardware validation.
+The workflow creates a published GitHub Release with macOS, Windows, Linux,
+updater signatures, and `latest.json`.
 
 ## Windows Shop Machine
 
-- Install from the draft release asset.
+- Install from the release asset.
 - Confirm `assets/bin/win32` tools are bundled by scanning a connected iPhone or
   iPad without installing system `libimobiledevice`.
 - Connect a trusted and unlocked device.
@@ -56,7 +56,7 @@ signatures, and `latest.json`. Publish the draft only after hardware validation.
 
 ## macOS Apple Silicon Shop Machine
 
-- Install the DMG from the draft release asset.
+- Install the DMG from the release asset.
 - Confirm `assets/bin/macos-arm64` tools are bundled by scanning a connected
   iPhone or iPad without installing Homebrew `libimobiledevice`.
 - Connect a trusted and unlocked device.
@@ -76,5 +76,5 @@ signatures, and `latest.json`. Publish the draft only after hardware validation.
 
 - Linux packaging is built by CI as best effort.
 - The app is unsigned unless platform signing secrets are added separately.
-- GitHub draft releases are not visible to the in-app updater; publish the
-  release only after Windows/macOS validation passes.
+- Published releases are visible to the in-app updater. Validate Windows/macOS
+  hardware flows immediately after publishing.

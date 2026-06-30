@@ -127,8 +127,8 @@ jobs:
           releaseBody: |
             Internal iPhoneLabelPrinter desktop build.
 
-            Validate with the checklist in docs/release-validation.md before publishing this draft release.
-          releaseDraft: true
+            Validate with the checklist in docs/release-validation.md after installing this release.
+          releaseDraft: false
           prerelease: false
           uploadUpdaterJson: true
           args: ${{ matrix.args }} --config src-tauri/tauri.updater.conf.json
