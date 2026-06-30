@@ -251,10 +251,25 @@ fn bundled_tool_dirs() -> Vec<PathBuf> {
 
     if let Ok(exe) = env::current_exe() {
         if let Some(parent) = exe.parent() {
+            dirs.push(parent.join(platform_bin_dir_name()));
+            dirs.push(parent.join("_up_").join(platform_bin_dir_name()));
             dirs.push(
                 parent
                     .join("assets")
                     .join("bin")
+                    .join(platform_bin_dir_name()),
+            );
+            dirs.push(
+                parent
+                    .join("..")
+                    .join("Resources")
+                    .join(platform_bin_dir_name()),
+            );
+            dirs.push(
+                parent
+                    .join("..")
+                    .join("Resources")
+                    .join("_up_")
                     .join(platform_bin_dir_name()),
             );
             dirs.push(
@@ -272,6 +287,13 @@ fn bundled_tool_dirs() -> Vec<PathBuf> {
                     .join("_up_")
                     .join("assets")
                     .join("bin")
+                    .join(platform_bin_dir_name()),
+            );
+            dirs.push(parent.join("resources").join(platform_bin_dir_name()));
+            dirs.push(
+                parent
+                    .join("resources")
+                    .join("_up_")
                     .join(platform_bin_dir_name()),
             );
             dirs.push(
@@ -472,6 +494,17 @@ mod tests {
         let message = missing_dependency_message("idevice_id");
         assert!(message.contains("libimobiledevice"));
         assert!(message.contains("idevice_id"));
+    }
+
+    #[test]
+    fn packaged_tool_dirs_include_direct_resource_layouts() {
+        let dirs = bundled_tool_dirs();
+        let resources_dir = PathBuf::from("Resources").join(platform_bin_dir_name());
+        let lowercase_resources_dir = PathBuf::from("resources").join(platform_bin_dir_name());
+        assert!(dirs.iter().any(|dir| dir.ends_with(&resources_dir)));
+        assert!(dirs
+            .iter()
+            .any(|dir| dir.ends_with(&lowercase_resources_dir)));
     }
 
     #[test]
