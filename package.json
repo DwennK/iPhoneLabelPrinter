@@ -6,7 +6,11 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc && vite build",
+    "test": "npm run test:catalog",
+    "test:catalog": "node --test scripts/*.test.mjs",
     "validate:catalog": "node scripts/validate-catalog.mjs",
+    "refresh:catalog": "node scripts/update-catalog.mjs",
+    "check:catalog-refresh": "node scripts/update-catalog.mjs --check",
     "preview": "vite preview",
     "tauri": "tauri",
     "tauri:dev": "tauri dev",

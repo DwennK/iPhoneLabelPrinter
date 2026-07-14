@@ -1,0 +1,85 @@
+name: Refresh Apple catalog
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "17 5 * * 1"
+
+permissions:
+  contents: write
+  pull-requests: write
+
+concurrency:
+  group: apple-catalog-refresh
+  cancel-in-progress: false
+
+jobs:
+  refresh:
+    name: Refresh catalog data
+    runs-on: ubuntu-22.04
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: lts/*
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Refresh catalog
+        run: npm run refresh:catalog
+
+      - name: Validate generated data
+        run: |
+          npm run validate:catalog
+          npm run test:catalog
+
+      - name: Detect changes
+        id: changes
+        shell: bash
+        run: |
+          if git diff --quiet -- src-tauri/data; then
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Push refresh branch
+        if: steps.changes.outputs.changed == 'true'
+        env:
+          BRANCH: codex/apple-catalog-refresh
+        shell: bash
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git fetch origin "refs/heads/$BRANCH:refs/remotes/origin/$BRANCH" || true
+          git switch -C "$BRANCH"
+          git add src-tauri/data
+          git commit -m "Refresh Apple device catalog" \
+            -m "Update generated ProductType, color, and order-number data from the configured upstream catalogs." \
+            -m "Keep shop-observed variants protected by the checked-in override file."
+          git push --force-with-lease origin "$BRANCH"
+
+      - name: Open or update pull request
+        if: steps.changes.outputs.changed == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          BRANCH: codex/apple-catalog-refresh
+        shell: bash
+        run: |
+          PR_NUMBER="$(gh pr list --head "$BRANCH" --base main --state open --json number --jq '.[0].number // empty')"
+          if [ -n "$PR_NUMBER" ]; then
+            gh pr edit "$PR_NUMBER" \
+              --title "Refresh Apple device catalog" \
+              --body "Automated weekly refresh from AppleDB and ios-device-list. Catalog schemas, duplicate detection, cross-file consistency, and pipeline tests passed."
+          else
+            gh pr create \
+              --base main \
+              --head "$BRANCH" \
+              --title "Refresh Apple device catalog" \
+              --body "Automated weekly refresh from AppleDB and ios-device-list. Catalog schemas, duplicate detection, cross-file consistency, and pipeline tests passed."
+          fi

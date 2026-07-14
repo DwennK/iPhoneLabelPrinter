@@ -82,6 +82,38 @@ idevicediagnostics --help
 lpstat -p
 ```
 
+## Apple Catalog Maintenance
+
+The runtime catalog is generated from two maintained upstream datasets:
+
+- [AppleDB](https://appledb.dev/) for ProductType marketing names and color lists.
+- [ios-device-list](https://github.com/pbakondy/ios-device-list) for Apple order-number color and storage variants.
+
+Shop-observed values and upstream conflict resolutions live in
+`scripts/catalog-overrides.json`; the refresh command always applies them after
+downloading upstream data. Product/color-code fallbacks remain deliberately
+hand-maintained in `src-tauri/data/color_code_variants.json` because their
+numeric values are device-generation-specific observations.
+
+```bash
+# Download upstream data, apply overrides, validate, and update changed JSON.
+npm run refresh:catalog
+
+# Check whether a refresh would change committed data without writing files.
+npm run check:catalog-refresh
+
+# Validate schemas, normalized values, duplicates, and cross-file consistency.
+npm run validate:catalog
+
+# Exercise the catalog transformation and conflict-resolution logic.
+npm run test:catalog
+```
+
+`.github/workflows/catalog-refresh.yml` runs the refresh every Monday and opens
+or updates a pull request only when generated data changes. A refresh fails
+closed if an upstream source is unavailable, unexpectedly sparse, malformed,
+or introduces a conflicting order-number mapping without an explicit override.
+
 ## Build And Verify
 
 ```bash
@@ -127,7 +159,5 @@ are written to the user application data folder. Set
 
 - Validate each draft release on the shop Windows and macOS machines with real
   devices and the thermal printer.
-- Extend `scripts/validate-catalog.mjs` into a full JSON refresh pipeline for
-  the Apple model/variant data now stored in `src-tauri/data`.
 - Add platform code signing/notarization if the app is distributed beyond
   internal use.

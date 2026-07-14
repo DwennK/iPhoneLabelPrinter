@@ -47,6 +47,9 @@ jobs:
       - name: Validate catalog data
         run: npm run validate:catalog
 
+      - name: Test catalog pipeline
+        run: npm run test:catalog
+
       - name: Check Rust formatting
         run: cargo fmt --manifest-path src-tauri/Cargo.toml -- --check
 

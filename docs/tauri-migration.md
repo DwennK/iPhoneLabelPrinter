@@ -100,7 +100,5 @@ cd .. && npm run tauri:build
 
 - Validate each draft release on the target Windows shop machine.
 - Validate each draft release on a target Mac with a real USB device.
-- Add a maintained JSON refresh command if Apple model/variant data needs
-  regular updates.
 - Add code signing and notarization if distribution expands beyond internal
   usage.

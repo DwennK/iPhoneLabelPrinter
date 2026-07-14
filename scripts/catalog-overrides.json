@@ -1,0 +1,710 @@
+{
+  "marketing_names": {},
+  "product_color_options": {},
+  "model_number_variants": {
+    "AMN93": {
+      "color": "Silver",
+      "storage": "128 GB"
+    },
+    "MD097": {
+      "color": "Black & Slate",
+      "storage": "16 GB"
+    },
+    "MD105": {
+      "color": "White & Silver",
+      "storage": "16 GB"
+    },
+    "MD144": {
+      "color": "White & Silver",
+      "storage": "32 GB"
+    },
+    "MD293": {
+      "color": "Black & Slate",
+      "storage": "16 GB"
+    },
+    "MD294": {
+      "color": "White & Silver",
+      "storage": "16 GB"
+    },
+    "MD295": {
+      "color": "Black & Slate",
+      "storage": "32 GB"
+    },
+    "MD296": {
+      "color": "White & Silver",
+      "storage": "32 GB"
+    },
+    "MD297": {
+      "color": "Black & Slate",
+      "storage": "16 GB"
+    },
+    "MD298": {
+      "color": "White & Silver",
+      "storage": "16 GB"
+    },
+    "MD299": {
+      "color": "Black & Slate",
+      "storage": "32 GB"
+    },
+    "MD300": {
+      "color": "White & Silver",
+      "storage": "32 GB"
+    },
+    "MD634": {
+      "color": "Black & Slate",
+      "storage": "16 GB"
+    },
+    "MD635": {
+      "color": "White & Silver",
+      "storage": "16 GB"
+    },
+    "MD636": {
+      "color": "Black & Slate",
+      "storage": "32 GB"
+    },
+    "MD637": {
+      "color": "White & Silver",
+      "storage": "32 GB"
+    },
+    "MD638": {
+      "color": "Black & Slate",
+      "storage": "16 GB"
+    },
+    "MD639": {
+      "color": "White & Silver",
+      "storage": "16 GB"
+    },
+    "MD640": {
+      "color": "Black & Slate",
+      "storage": "32 GB"
+    },
+    "MD641": {
+      "color": "White & Silver",
+      "storage": "32 GB"
+    },
+    "MD642": {
+      "color": "Black & Slate",
+      "storage": "64 GB"
+    },
+    "MD643": {
+      "color": "White & Silver",
+      "storage": "64 GB"
+    },
+    "MD644": {
+      "color": "Black & Slate",
+      "storage": "64 GB"
+    },
+    "MD645": {
+      "color": "White & Silver",
+      "storage": "64 GB"
+    },
+    "MD646": {
+      "color": "Black & Slate",
+      "storage": "64 GB"
+    },
+    "MD647": {
+      "color": "White & Silver",
+      "storage": "64 GB"
+    },
+    "MD654": {
+      "color": "Black & Slate",
+      "storage": "16 GB"
+    },
+    "MD655": {
+      "color": "White & Silver",
+      "storage": "16 GB"
+    },
+    "MD656": {
+      "color": "Black & Slate",
+      "storage": "16 GB"
+    },
+    "MD657": {
+      "color": "White & Silver",
+      "storage": "16 GB"
+    },
+    "MD658": {
+      "color": "Black & Slate",
+      "storage": "32 GB"
+    },
+    "MD659": {
+      "color": "White & Silver",
+      "storage": "32 GB"
+    },
+    "MD660": {
+      "color": "Black & Slate",
+      "storage": "32 GB"
+    },
+    "MD661": {
+      "color": "White & Silver",
+      "storage": "32 GB"
+    },
+    "MD662": {
+      "color": "Black & Slate",
+      "storage": "64 GB"
+    },
+    "MD663": {
+      "color": "White & Silver",
+      "storage": "64 GB"
+    },
+    "MD664": {
+      "color": "Black & Slate",
+      "storage": "64 GB"
+    },
+    "MD665": {
+      "color": "White & Silver",
+      "storage": "64 GB"
+    },
+    "MD667": {
+      "color": "Black & Slate",
+      "storage": "64 GB"
+    },
+    "MD668": {
+      "color": "White & Silver",
+      "storage": "64 GB"
+    },
+    "MD669": {
+      "color": "Black & Slate",
+      "storage": "16 GB"
+    },
+    "MD671": {
+      "color": "Black & Slate",
+      "storage": "16 GB"
+    },
+    "MD672": {
+      "color": "White & Silver",
+      "storage": "16 GB"
+    },
+    "ME039": {
+      "color": "Black & Slate",
+      "storage": "16 GB"
+    },
+    "ME040": {
+      "color": "White & Silver",
+      "storage": "16 GB"
+    },
+    "ME041": {
+      "color": "Black & Slate",
+      "storage": "32 GB"
+    },
+    "ME042": {
+      "color": "White & Silver",
+      "storage": "32 GB"
+    },
+    "ME043": {
+      "color": "Black & Slate",
+      "storage": "64 GB"
+    },
+    "ME044": {
+      "color": "White & Silver",
+      "storage": "64 GB"
+    },
+    "ME436": {
+      "color": "Silver",
+      "storage": "32 GB"
+    },
+    "ME486": {
+      "color": "Black & Slate",
+      "storage": "16 GB"
+    },
+    "ME487": {
+      "color": "White & Silver",
+      "storage": "16 GB"
+    },
+    "ME488": {
+      "color": "Black & Slate",
+      "storage": "32 GB"
+    },
+    "ME489": {
+      "color": "White & Silver",
+      "storage": "32 GB"
+    },
+    "ME490": {
+      "color": "Black & Slate",
+      "storage": "64 GB"
+    },
+    "ME491": {
+      "color": "White & Silver",
+      "storage": "64 GB"
+    },
+    "MG0V2": {
+      "color": "Pink",
+      "storage": "8 GB"
+    },
+    "MG1W2": {
+      "color": "Pink",
+      "storage": "8 GB"
+    },
+    "MG474": {
+      "color": "White",
+      "storage": "256 GB"
+    },
+    "MG684": {
+      "color": "White",
+      "storage": "256 GB"
+    },
+    "MG6J4": {
+      "color": "Black",
+      "storage": "256 GB"
+    },
+    "MG6K4": {
+      "color": "White",
+      "storage": "256 GB"
+    },
+    "MG6L4": {
+      "color": "Mist Blue",
+      "storage": "256 GB"
+    },
+    "MG6M4": {
+      "color": "Lavender",
+      "storage": "256 GB"
+    },
+    "MG6N4": {
+      "color": "Sage",
+      "storage": "256 GB"
+    },
+    "MG6P4": {
+      "color": "Black",
+      "storage": "512 GB"
+    },
+    "MG6Q4": {
+      "color": "White",
+      "storage": "512 GB"
+    },
+    "MG6S4": {
+      "color": "Lavender",
+      "storage": "512 GB"
+    },
+    "MG6T4": {
+      "color": "Mist Blue",
+      "storage": "512 GB"
+    },
+    "MG6V4": {
+      "color": "Sage",
+      "storage": "512 GB"
+    },
+    "MG6W4": {
+      "color": "Black",
+      "storage": "256 GB"
+    },
+    "MG6X4": {
+      "color": "White",
+      "storage": "256 GB"
+    },
+    "MG6Y4": {
+      "color": "Mist Blue",
+      "storage": "256 GB"
+    },
+    "MG704": {
+      "color": "Lavender",
+      "storage": "256 GB"
+    },
+    "MG714": {
+      "color": "Sage",
+      "storage": "256 GB"
+    },
+    "MG724": {
+      "color": "Black",
+      "storage": "512 GB"
+    },
+    "MG734": {
+      "color": "White",
+      "storage": "512 GB"
+    },
+    "MG744": {
+      "color": "Mist Blue",
+      "storage": "512 GB"
+    },
+    "MG764": {
+      "color": "Sage",
+      "storage": "512 GB"
+    },
+    "MG774": {
+      "color": "Lavender",
+      "storage": "512 GB"
+    },
+    "MHGV3": {
+      "color": "Red",
+      "storage": "128 GB"
+    },
+    "MLJC3": {
+      "color": "Midnight",
+      "storage": "128 GB"
+    },
+    "MLJE3": {
+      "color": "Starlight",
+      "storage": "128 GB"
+    },
+    "MLJF3": {
+      "color": "Pink",
+      "storage": "128 GB"
+    },
+    "MLJG3": {
+      "color": "Red",
+      "storage": "128 GB"
+    },
+    "MLJH3": {
+      "color": "Blue",
+      "storage": "128 GB"
+    },
+    "MLJJ3": {
+      "color": "Midnight",
+      "storage": "256 GB"
+    },
+    "MLJK3": {
+      "color": "Starlight",
+      "storage": "256 GB"
+    },
+    "MLJL3": {
+      "color": "Pink",
+      "storage": "256 GB"
+    },
+    "MLJM3": {
+      "color": "Red",
+      "storage": "256 GB"
+    },
+    "MLJN3": {
+      "color": "Blue",
+      "storage": "256 GB"
+    },
+    "MLJP3": {
+      "color": "Midnight",
+      "storage": "512 GB"
+    },
+    "MLJR3": {
+      "color": "Starlight",
+      "storage": "512 GB"
+    },
+    "MLJU3": {
+      "color": "Pink",
+      "storage": "512 GB"
+    },
+    "MLJW3": {
+      "color": "Red",
+      "storage": "512 GB"
+    },
+    "MLJY3": {
+      "color": "Blue",
+      "storage": "512 GB"
+    },
+    "MLN23": {
+      "color": "Midnight",
+      "storage": "512 GB"
+    },
+    "MLNC3": {
+      "color": "Midnight",
+      "storage": "128 GB"
+    },
+    "MLND3": {
+      "color": "Starlight",
+      "storage": "128 GB"
+    },
+    "MLNE3": {
+      "color": "Pink",
+      "storage": "128 GB"
+    },
+    "MLNF3": {
+      "color": "Red",
+      "storage": "128 GB"
+    },
+    "MLNG3": {
+      "color": "Blue",
+      "storage": "128 GB"
+    },
+    "MLNH3": {
+      "color": "Midnight",
+      "storage": "256 GB"
+    },
+    "MLNJ3": {
+      "color": "Starlight",
+      "storage": "256 GB"
+    },
+    "MLNK3": {
+      "color": "Pink",
+      "storage": "256 GB"
+    },
+    "MLNL3": {
+      "color": "Red",
+      "storage": "256 GB"
+    },
+    "MLNM3": {
+      "color": "Blue",
+      "storage": "256 GB"
+    },
+    "MLNN3": {
+      "color": "Midnight",
+      "storage": "512 GB"
+    },
+    "MLNP3": {
+      "color": "Starlight",
+      "storage": "512 GB"
+    },
+    "MLNQ3": {
+      "color": "Pink",
+      "storage": "512 GB"
+    },
+    "MLNR3": {
+      "color": "Red",
+      "storage": "512 GB"
+    },
+    "MLNT3": {
+      "color": "Blue",
+      "storage": "512 GB"
+    },
+    "MLTH3": {
+      "color": "Gold",
+      "storage": "512 GB"
+    },
+    "MM172": {
+      "color": "Rose Gold",
+      "storage": "128 GB"
+    },
+    "MM9M3": {
+      "color": "Pink",
+      "storage": "64 GB"
+    },
+    "MNFC3": {
+      "color": "Green",
+      "storage": "128 GB"
+    },
+    "MNFD3": {
+      "color": "Green",
+      "storage": "256 GB"
+    },
+    "MNFE3": {
+      "color": "Green",
+      "storage": "512 GB"
+    },
+    "MNGG3": {
+      "color": "Green",
+      "storage": "128 GB"
+    },
+    "MNGH3": {
+      "color": "Green",
+      "storage": "256 GB"
+    },
+    "MNGJ3": {
+      "color": "Green",
+      "storage": "512 GB"
+    },
+    "MPUD3": {
+      "color": "Midnight",
+      "storage": "128 GB"
+    },
+    "MPUQ3": {
+      "color": "Starlight",
+      "storage": "128 GB"
+    },
+    "MPUY3": {
+      "color": "Purple",
+      "storage": "128 GB"
+    },
+    "MPV93": {
+      "color": "Red",
+      "storage": "128 GB"
+    },
+    "MPVJ3": {
+      "color": "Blue",
+      "storage": "128 GB"
+    },
+    "MPVW3": {
+      "color": "Midnight",
+      "storage": "256 GB"
+    },
+    "MPW33": {
+      "color": "Starlight",
+      "storage": "256 GB"
+    },
+    "MPW93": {
+      "color": "Purple",
+      "storage": "256 GB"
+    },
+    "MPWG3": {
+      "color": "Red",
+      "storage": "256 GB"
+    },
+    "MPWN3": {
+      "color": "Blue",
+      "storage": "256 GB"
+    },
+    "MPWV3": {
+      "color": "Midnight",
+      "storage": "512 GB"
+    },
+    "MPX23": {
+      "color": "Starlight",
+      "storage": "512 GB"
+    },
+    "MPX83": {
+      "color": "Purple",
+      "storage": "512 GB"
+    },
+    "MPXF3": {
+      "color": "Red",
+      "storage": "512 GB"
+    },
+    "MPXM3": {
+      "color": "Blue",
+      "storage": "512 GB"
+    },
+    "MPXU3": {
+      "color": "Space Black",
+      "storage": "128 GB"
+    },
+    "MQ013": {
+      "color": "Silver",
+      "storage": "128 GB"
+    },
+    "MQ073": {
+      "color": "Gold",
+      "storage": "128 GB"
+    },
+    "MQ0F3": {
+      "color": "Deep Purple",
+      "storage": "128 GB"
+    },
+    "MQ0Q3": {
+      "color": "Space Black",
+      "storage": "256 GB"
+    },
+    "MQ0Y3": {
+      "color": "Silver",
+      "storage": "256 GB"
+    },
+    "MQ173": {
+      "color": "Gold",
+      "storage": "256 GB"
+    },
+    "MQ1E3": {
+      "color": "Deep Purple",
+      "storage": "256 GB"
+    },
+    "MQ1L3": {
+      "color": "Space Black",
+      "storage": "512 GB"
+    },
+    "MQ1V3": {
+      "color": "Silver",
+      "storage": "512 GB"
+    },
+    "MQ223": {
+      "color": "Gold",
+      "storage": "512 GB"
+    },
+    "MQ283": {
+      "color": "Deep Purple",
+      "storage": "512 GB"
+    },
+    "MQ4A3": {
+      "color": "Midnight",
+      "storage": "128 GB"
+    },
+    "MQ4D3": {
+      "color": "Starlight",
+      "storage": "128 GB"
+    },
+    "MQ4E3": {
+      "color": "Purple",
+      "storage": "128 GB"
+    },
+    "MQ4F3": {
+      "color": "Red",
+      "storage": "128 GB"
+    },
+    "MQ4H3": {
+      "color": "Blue",
+      "storage": "128 GB"
+    },
+    "MQ4J3": {
+      "color": "Midnight",
+      "storage": "256 GB"
+    },
+    "MQ4L3": {
+      "color": "Starlight",
+      "storage": "256 GB"
+    },
+    "MQ4M3": {
+      "color": "Purple",
+      "storage": "256 GB"
+    },
+    "MQ4P3": {
+      "color": "Red",
+      "storage": "256 GB"
+    },
+    "MQ4Q3": {
+      "color": "Blue",
+      "storage": "256 GB"
+    },
+    "MQ4R3": {
+      "color": "Midnight",
+      "storage": "512 GB"
+    },
+    "MQ4T3": {
+      "color": "Starlight",
+      "storage": "512 GB"
+    },
+    "MQ4U3": {
+      "color": "Purple",
+      "storage": "512 GB"
+    },
+    "MQ4V3": {
+      "color": "Red",
+      "storage": "512 GB"
+    },
+    "MQ4W3": {
+      "color": "Blue",
+      "storage": "512 GB"
+    },
+    "MQ963": {
+      "color": "Space Black",
+      "storage": "128 GB"
+    },
+    "MQ973": {
+      "color": "Silver",
+      "storage": "128 GB"
+    },
+    "MQ983": {
+      "color": "Gold",
+      "storage": "128 GB"
+    },
+    "MQ993": {
+      "color": "Deep Purple",
+      "storage": "128 GB"
+    },
+    "MQ9A3": {
+      "color": "Space Black",
+      "storage": "256 GB"
+    },
+    "MQ9C3": {
+      "color": "Silver",
+      "storage": "256 GB"
+    },
+    "MQ9D3": {
+      "color": "Gold",
+      "storage": "256 GB"
+    },
+    "MQ9E3": {
+      "color": "Deep Purple",
+      "storage": "256 GB"
+    },
+    "MQ9F3": {
+      "color": "Space Black",
+      "storage": "512 GB"
+    },
+    "MQ9G3": {
+      "color": "Silver",
+      "storage": "512 GB"
+    },
+    "MQ9H3": {
+      "color": "Gold",
+      "storage": "512 GB"
+    },
+    "MQ9J3": {
+      "color": "Deep Purple",
+      "storage": "512 GB"
+    },
+    "MYNH3": {
+      "color": "Black Titanium",
+      "storage": "256 GB"
+    }
+  }
+}
