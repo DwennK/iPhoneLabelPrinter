@@ -30,7 +30,7 @@ been removed from this branch.
 
 Shared:
 
-- Node.js and npm
+- Node.js 20.19+ or 22.12+ and npm
 - Rust stable
 - A USB data cable
 - A trusted and unlocked iPhone or iPad
