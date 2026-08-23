@@ -15,6 +15,7 @@ export function createInitialState(): AppState {
     generatedPdfPath: "",
     history: [],
     historyQuery: "",
+    selectedHistoryId: "",
     environment: null,
     updateAvailableVersion: "",
     updateReadyToRelaunch: false,

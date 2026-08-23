@@ -1,15 +1,16 @@
 import {
-  DEFAULT_COLORS,
-  EMPTY_INFO,
   HISTORY_COLUMNS,
   type AppState,
+  type EditableIPhoneField,
   type HistoryEntry,
-  type IPhoneInfo,
   type LabelOptions,
   type PrinterProfile,
   type TabKey,
 } from "./types";
 import { profileForPrinter } from "./settings";
+import { deviceAlerts, primaryIdentifier as getPrimaryIdentifier } from "./domain/device-info";
+import { filterHistory } from "./domain/history";
+import { orientLabelOptions } from "./domain/label-options";
 
 export function renderApp(state: AppState): string {
   const activeTitle = activeTabTitle(state.activeTab);
@@ -52,7 +53,7 @@ export function renderApp(state: AppState): string {
 }
 
 export function updateAlerts(app: HTMLElement, state: AppState) {
-  const alerts = alertMessages(state);
+  const alerts = deviceAlerts(state.info);
   const container = app.querySelector<HTMLDivElement>("#alerts");
   if (!container) return;
   if (!alerts.length) {
@@ -67,48 +68,11 @@ export function updateAlerts(app: HTMLElement, state: AppState) {
 }
 
 export function filteredHistory(state: AppState): HistoryEntry[] {
-  const query = state.historyQuery.trim().toLowerCase();
-  if (!query) return state.history;
-  return state.history.filter((entry) =>
-    [
-      entry.createdAt,
-      entry.labelId,
-      entry.printedAt,
-      entry.marketingModel,
-      entry.technicalModel,
-      entry.storage,
-      entry.color,
-      entry.imei,
-      entry.serialNumber,
-      entry.deviceName,
-      entry.batteryHealth,
-      entry.printerName,
-      entry.pdfPath,
-    ]
-      .join(" ")
-      .toLowerCase()
-      .includes(query),
-  );
+  return filterHistory(state.history, state.historyQuery);
 }
 
 export function effectiveLabelSize(state: AppState): LabelOptions {
-  const profile = selectedPrinterProfile(state);
-  const shortSide = Math.min(profile.labelWidthMm, profile.labelHeightMm);
-  const longSide = Math.max(profile.labelWidthMm, profile.labelHeightMm);
-  if (profile.labelOrientation === "portrait") {
-    return {
-      labelWidthMm: shortSide,
-      labelHeightMm: longSide,
-      labelOrientation: profile.labelOrientation,
-      printScaleMode: profile.printScaleMode,
-    };
-  }
-  return {
-    labelWidthMm: longSide,
-    labelHeightMm: shortSide,
-    labelOrientation: profile.labelOrientation,
-    printScaleMode: profile.printScaleMode,
-  };
+  return orientLabelOptions(selectedPrinterProfile(state));
 }
 
 export function effectiveLabelOptions(state: AppState): LabelOptions {
@@ -120,24 +84,7 @@ export function selectedPrinterProfile(state: AppState): PrinterProfile {
 }
 
 export function primaryIdentifier(state: AppState): string {
-  const imei = normalizeImei(state.info.imei);
-  if (imei) return `IMEI: ${imei}`;
-  if (state.info.serialNumber.trim()) return `Serial: ${state.info.serialNumber.trim()}`;
-  return "Manual entry needed";
-}
-
-export function normalizeImei(value: string): string {
-  return value.replace(/\D+/g, "");
-}
-
-export function emptyIPhoneInfo(): IPhoneInfo {
-  return { ...EMPTY_INFO };
-}
-
-export function defaultColorOptions(selectedColor = "") {
-  return ["", ...DEFAULT_COLORS, selectedColor].filter(
-    (color, index, values) => values.indexOf(color) === index,
-  );
+  return getPrimaryIdentifier(state.info);
 }
 
 export function disabledIfBusy(state: AppState): string {
@@ -294,7 +241,7 @@ export function renderLabelPreview(state: AppState): string {
 
 function field(
   state: AppState,
-  key: keyof IPhoneInfo,
+  key: EditableIPhoneField,
   label: string,
   type = "text",
   list = "",
@@ -341,7 +288,7 @@ function historyTab(state: AppState): string {
             <tbody>
               ${
                 entries.length
-                  ? entries.map(historyRow).join("")
+                  ? entries.map((entry) => historyRow(entry, state.selectedHistoryId)).join("")
                   : `<tr><td colspan="${HISTORY_COLUMNS.length}" class="empty">No history rows.</td></tr>`
               }
             </tbody>
@@ -352,9 +299,10 @@ function historyTab(state: AppState): string {
   `;
 }
 
-function historyRow(entry: HistoryEntry, index: number): string {
+function historyRow(entry: HistoryEntry, selectedHistoryId: string): string {
+  const selectedClass = entry.labelId === selectedHistoryId ? "is-selected" : "";
   return `
-    <tr data-history-index="${index}">
+    <tr class="${selectedClass}" data-history-id="${escapeAttribute(entry.labelId)}">
       ${HISTORY_COLUMNS.map(([key]) => `<td>${escapeHtml(String(entry[key] ?? ""))}</td>`).join("")}
     </tr>
   `;
@@ -491,44 +439,6 @@ function scaleLabel(value: string): string {
 function shortIdentifier(value: string): string {
   if (value.length <= 12) return value;
   return `${value.slice(0, 6)}...${value.slice(-6)}`;
-}
-
-function alertMessages(state: AppState): string[] {
-  const info = state.info;
-  const hasAnyValue = [
-    info.marketingModel,
-    info.technicalModel,
-    info.storage,
-    info.color,
-    info.imei,
-    info.serialNumber,
-    info.batteryHealth,
-  ].some(Boolean);
-  if (!hasAnyValue) return [];
-
-  const alerts: string[] = [];
-  if (!info.marketingModel || info.marketingModel.toLowerCase() === "unknown model") {
-    alerts.push("Model must be verified manually.");
-  }
-  if (!info.storage) alerts.push("Storage is missing.");
-  if (!info.color) alerts.push("Color is missing.");
-
-  const imei = normalizeImei(info.imei);
-  if (!imei && !info.serialNumber.trim()) {
-    alerts.push("IMEI/serial number is missing.");
-  } else if (imei && imei.length !== 15) {
-    alerts.push("IMEI should contain 15 digits.");
-  }
-
-  const batteryPercent = parseInt(info.batteryHealth, 10);
-  if (Number.isFinite(batteryPercent) && batteryPercent < 80) {
-    alerts.push(`Battery health is low (${batteryPercent}%).`);
-  }
-  const cycleMatch = info.batteryHealth.match(/(\d+)\s*cycles?/i);
-  if (cycleMatch && Number(cycleMatch[1]) > 500) {
-    alerts.push(`Battery cycle count is high (${cycleMatch[1]} cycles).`);
-  }
-  return alerts;
 }
 
 function escapeHtml(value: string): string {

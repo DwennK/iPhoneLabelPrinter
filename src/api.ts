@@ -14,6 +14,10 @@ import type {
   PrinterInfo,
 } from "./types";
 
+export function isTauriRuntime(): boolean {
+  return "__TAURI_INTERNALS__" in window;
+}
+
 export function loadEnvironmentInfo() {
   return invoke<EnvironmentInfo>("environment_info");
 }

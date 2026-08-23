@@ -1,6 +1,16 @@
 export type TabKey = "label" | "history" | "settings";
 export type LabelOrientation = "portrait" | "landscape";
 export type PrintScaleMode = "noscale" | "fit";
+export type EditableIPhoneField =
+  | "marketingModel"
+  | "technicalModel"
+  | "storage"
+  | "color"
+  | "imei"
+  | "serialNumber"
+  | "deviceName"
+  | "iosVersion"
+  | "batteryHealth";
 
 export interface AppError {
   title: string;
@@ -43,7 +53,7 @@ export interface LabelOptions {
   printScaleMode: PrintScaleMode;
 }
 
-export interface PrinterProfile extends LabelOptions {}
+export type PrinterProfile = LabelOptions;
 
 export interface AppSettings extends LabelOptions {
   labelRetentionDays: number;
@@ -111,6 +121,7 @@ export interface AppState {
   generatedPdfPath: string;
   history: HistoryEntry[];
   historyQuery: string;
+  selectedHistoryId: string;
   environment: EnvironmentInfo | null;
   updateAvailableVersion: string;
   updateReadyToRelaunch: boolean;
