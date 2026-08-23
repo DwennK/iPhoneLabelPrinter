@@ -1,6 +1,6 @@
 [package]
 name = "iphone-label-printer-tauri"
-version = "1.0.13"
+version = "1.0.14"
 description = "Tauri migration shell for iPhoneLabelPrinter"
 authors = ["iPhoneLabelPrinter maintainers"]
 edition = "2021"
