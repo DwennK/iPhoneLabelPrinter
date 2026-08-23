@@ -1,7 +1,7 @@
 {
   "name": "iphone-label-printer-tauri",
   "private": true,
-  "version": "1.0.14",
+  "version": "1.0.15",
   "type": "module",
   "engines": {
     "node": "^20.19.0 || >=22.12.0"
