@@ -8,7 +8,7 @@
   release commit.
 - Inspect the latest application version, Git tag, and GitHub Release. Use the
   next patch version by default unless the user specifies another version.
-- Keep `package.json`, `package-lock.json`, `src-tauri/Cargo.toml`,
+- Keep `package.json`, `src-tauri/Cargo.toml`,
   `src-tauri/Cargo.lock`, and `src-tauri/tauri.conf.json` on the same version.
 - Create the version bump as a separate, coherent release commit with a
   multi-line English commit message.

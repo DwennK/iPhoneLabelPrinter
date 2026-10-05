@@ -22,11 +22,14 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y libwebkit2gtk-4.1-dev libayatana-appindicator3-dev librsvg2-dev patchelf
 
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v6
+
       - name: Set up Node.js
         uses: actions/setup-node@v7
         with:
           node-version: lts/*
-          cache: npm
+          cache: pnpm
 
       - name: Install Rust stable
         uses: dtolnay/rust-toolchain@stable
@@ -37,7 +40,7 @@ jobs:
           workspaces: "./src-tauri -> target"
 
       - name: Install frontend dependencies
-        run: npm ci
+        run: pnpm install --frozen-lockfile
 
       - name: Check tag matches Tauri version
         if: startsWith(github.ref, 'refs/tags/v')
@@ -51,7 +54,7 @@ jobs:
           fi
 
       - name: Build frontend
-        run: npm run build
+        run: pnpm run build
 
       - name: Run Rust tests
         run: cargo test --manifest-path src-tauri/Cargo.toml
@@ -86,11 +89,14 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y libwebkit2gtk-4.1-dev libayatana-appindicator3-dev librsvg2-dev patchelf
 
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v6
+
       - name: Set up Node.js
         uses: actions/setup-node@v7
         with:
           node-version: lts/*
-          cache: npm
+          cache: pnpm
 
       - name: Install Rust stable
         uses: dtolnay/rust-toolchain@stable
@@ -103,7 +109,7 @@ jobs:
           workspaces: "./src-tauri -> target"
 
       - name: Install frontend dependencies
-        run: npm ci
+        run: pnpm install --frozen-lockfile
 
       - name: Verify updater signing secret
         shell: bash

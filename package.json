@@ -4,12 +4,12 @@
   "version": "1.0.15",
   "type": "module",
   "engines": {
-    "node": "^20.19.0 || >=22.12.0"
+    "node": ">=22.12.0"
   },
   "scripts": {
     "dev": "vite",
     "build": "tsc && vite build",
-    "test": "npm run test:frontend && npm run test:catalog",
+    "test": "pnpm run test:frontend && pnpm run test:catalog",
     "test:frontend": "tsx --test tests/*.test.ts",
     "test:catalog": "node --test scripts/*.test.mjs",
     "validate:catalog": "node scripts/validate-catalog.mjs",
@@ -30,5 +30,6 @@
     "tsx": "^4.23.12",
     "typescript": "~7.0.2",
     "vite": "^8.1.5"
-  }
+  },
+  "packageManager": "pnpm@11.28.4"
 }

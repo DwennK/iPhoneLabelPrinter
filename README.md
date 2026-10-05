@@ -69,8 +69,8 @@ Linux:
 
 ```bash
 cd /Users/dwenn/Documents/dev/iPhoneLabelPrinter
-npm install
-npm run tauri:dev
+pnpm install
+pnpm run tauri:dev
 ```
 
 Useful dependency checks:
@@ -97,16 +97,16 @@ numeric values are device-generation-specific observations.
 
 ```bash
 # Download upstream data, apply overrides, validate, and update changed JSON.
-npm run refresh:catalog
+pnpm run refresh:catalog
 
 # Check whether a refresh would change committed data without writing files.
-npm run check:catalog-refresh
+pnpm run check:catalog-refresh
 
 # Validate schemas, normalized values, duplicates, and cross-file consistency.
-npm run validate:catalog
+pnpm run validate:catalog
 
 # Exercise the catalog transformation and conflict-resolution logic.
-npm run test:catalog
+pnpm run test:catalog
 ```
 
 `.github/workflows/catalog-refresh.yml` runs the refresh every Monday and opens
@@ -117,10 +117,10 @@ or introduces a conflicting order-number mapping without an explicit override.
 ## Build And Verify
 
 ```bash
-npm run build
-npm run validate:catalog
+pnpm run build
+pnpm run validate:catalog
 cd src-tauri && cargo test
-cd .. && npm run tauri:build
+cd .. && pnpm run tauri:build
 ```
 
 The Tauri bundle includes the Windows binaries from `assets/bin/win32` and the
